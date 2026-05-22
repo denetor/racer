@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import path from 'path';
 
 // if you use tiled maps
 // there is a collision between react w/ typescript .tsx
@@ -35,5 +36,10 @@ export default defineConfig({
                 format: 'umd'
             }
         }
-    }
+    },
+    resolve: {
+        alias: {
+            '@': path.resolve(__dirname, './src'),
+        },
+    },
 });
