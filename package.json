@@ -4,11 +4,14 @@
   "description": "Excalibur TypeScript template for Vite",
   "main": "src/main.ts",
   "scripts": {
-    "dev": "vite",
-    "start": "vite",
+    "dev": "vite --host",
+    "start": "vite --host",
     "build": "tsc && vite build",
     "serve": "vite preview",
-    "test": "npm run build && npx playwright test",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "jest",
+    "test:unit:watch": "jest --watch",
+    "test:integration": "npm run build && npx playwright test",
     "test:integration-update": "npx playwright test --update-snapshots"
   },
   "repository": {
@@ -32,8 +35,11 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.10.2",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "typescript": "5.9.3",
-    "vite": "6.4.2"
+    "vite": "^6.4.2"
   }
 }

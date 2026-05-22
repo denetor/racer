@@ -9,3 +9,5 @@ test/images/diff-*.png
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+.idea
+.claude/settings.local.json
