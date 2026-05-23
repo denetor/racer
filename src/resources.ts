@@ -2,7 +2,6 @@ import { ImageSource, Loader } from "excalibur";
 
 // It is convenient to put your resources in one place
 export const Resources = {
-  Sword: new ImageSource("./images/sword.png"), // Vite public/ directory serves the root images
   ObjectsSpritesheet: new ImageSource('./images/spritesheets/spritesheet_objects.png'),
   TilesSpritesheet: new ImageSource('./images/spritesheets/spritesheet_tiles.png'),
   VehiclesSpritesheet: new ImageSource('./images/spritesheets/spritesheet_vehicles.png'),
