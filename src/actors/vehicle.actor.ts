@@ -3,26 +3,31 @@ import {Resources} from "@/resources";
 
 export class VehicleActor extends Actor {
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
-    steeringAngle: number = 0.0;
-    maxSteeringAngle: number = 0.6;
+    protected steeringAngle: number = 0.6;
+    protected maxSteeringAngle: number = 0.6;
+    // speed of steering return to 0 when no steer input is given, in radians/sec
+    protected steeringReturnSpeed: number = 0.8;
     // distance, in pixels, from vehicle center to front axle
-    frontAxlePosition: number = 33;
+    protected frontAxlePosition: number = 33;
     // vehicle weight, in kg
-    weight: number = 1000.0;
+    protected weight: number = 1000.0;
     // max speed, in px/s
-    maxSpeed: number = 200;
+    protected maxSpeed: number = 200;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force taht moves the sprite
-    heading: Vector = vec(1,0);
+    protected heading: Vector = vec(0.5,0.4);
+    // child actors
+    protected leftWheelAxis: Actor = null as any;
+    protected rightWheelAxis: Actor = null as any;
+    protected leftWheel: Actor = null as any;
+    protected rightWheel: Actor = null as any;
 
 
     constructor() {
         super({
             name: 'Vehicle',
-            pos: vec(150, 150),
+            pos: vec(80, 80),
         });
-        this.steeringAngle = 0.5;
-        this.heading = vec(0,-1);
     }
 
 
@@ -57,7 +62,7 @@ export class VehicleActor extends Actor {
 
         // children actors: wheels axles
         const wheelAxisRotation = this.getWheelAxisRotation();
-        const leftWheelAxis = new Actor({
+        this.leftWheelAxis = new Actor({
             name: 'leftWheelAxis',
             width: 1,
             height: 40,
@@ -65,7 +70,7 @@ export class VehicleActor extends Actor {
             pos: vec(-frontAxle.width / 2, - this.frontAxlePosition),
             rotation: wheelAxisRotation,
         });
-        const rightWheelAxis = new Actor({
+        this.rightWheelAxis = new Actor({
             name: 'rightWheelAxis',
             width: 1,
             height: 40,
@@ -73,10 +78,10 @@ export class VehicleActor extends Actor {
             pos: vec(frontAxle.width / 2, - this.frontAxlePosition),
             rotation: wheelAxisRotation,
         });
-        this.addChild(leftWheelAxis);
-        this.addChild(rightWheelAxis);
+        this.addChild(this.leftWheelAxis);
+        this.addChild(this.rightWheelAxis);
 
-        const leftWheel = new Actor({
+        this.leftWheel = new Actor({
             name: 'leftWheelAxis',
             width: 10,
             height: 20,
@@ -85,7 +90,7 @@ export class VehicleActor extends Actor {
             rotation: wheelAxisRotation,
             z: -1,
         });
-        const rightWheel = new Actor({
+        this.rightWheel = new Actor({
             name: 'rightWheelAxis',
             width: 10,
             height: 20,
@@ -94,11 +99,22 @@ export class VehicleActor extends Actor {
             rotation: wheelAxisRotation,
             z: -1,
         });
-        this.addChild(leftWheel);
-        this.addChild(rightWheel);
+        this.addChild(this.leftWheel);
+        this.addChild(this.rightWheel);
 
         // rotate entire group according to current heading
         this.rotateToHeading();
+    }
+
+
+
+    onPostUpdate(engine: Engine, elapsed: number) {
+        super.onPostUpdate(engine, elapsed);
+        const wheelAxisRotation = this.getWheelAxisRotation();
+        this.leftWheelAxis.rotation = wheelAxisRotation;
+        this.rightWheelAxis.rotation = wheelAxisRotation;
+        this.leftWheel.rotation = wheelAxisRotation;
+        this.rightWheel.rotation = wheelAxisRotation;
     }
 
 

@@ -34,10 +34,27 @@ export class DriveInputSystem extends System {
 
             const accelerating = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate));
             const braking = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake));
+            const steeringLeft = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerLeft));
+            const steeringRight = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerRight));
 
             if (accelerating) speed += (this.accelerationForce / drivable.weight) * dt;
             if (braking) speed -= (this.brakingForce / drivable.weight) * dt;
             if (!accelerating && !braking) speed -= (this.frictionForce / drivable.weight) * dt;
+
+            if (!steeringLeft && !steeringRight) {
+                const steerDelta = delta * drivable.steeringReturnSpeed / 1000;
+                if (drivable.steeringAngle > 0) {
+                    drivable.steeringAngle -= steerDelta;
+                    if (drivable.steeringAngle < 0) {
+                        drivable.steeringAngle = 0;
+                    }
+                } else if (drivable.steeringAngle < 0) {
+                    drivable.steeringAngle += steerDelta;
+                    if (drivable.steeringAngle > 0) {
+                        drivable.steeringAngle = 0;
+                    }
+                }
+            }
 
             speed = Math.min(Math.max(speed, 0), drivable.maxSpeed);
             drivable.vel = dir.scale(speed);
