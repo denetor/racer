@@ -1,9 +1,12 @@
-import {Actor, Animation, AnimationStrategy, Engine, SpriteSheet, vec, Vector} from "excalibur";
+import {Actor, Animation, AnimationStrategy, Color, Engine, SpriteSheet, vec, Vector} from "excalibur";
 import {Resources} from "@/resources";
 
 export class VehicleActor extends Actor {
-    // current steering angle
+    // current steering angle, in radians. 0 = no steering, negative = left, positive = right
     steeringAngle: number = 0.0;
+    maxSteeringAngle: number = 0.6;
+    // distance, in pixels, from vehicle center to front axle
+    frontAxlePosition: number = 33;
     // vehicle weight, in kg
     weight: number = 1000.0;
     // max speed, in px/s
@@ -16,10 +19,10 @@ export class VehicleActor extends Actor {
     constructor() {
         super({
             name: 'Vehicle',
-            pos: vec(50, 50),
+            pos: vec(150, 150),
         });
-        this.steeringAngle = 0.0;
-        this.heading = vec(0.55,0.23);
+        this.steeringAngle = 0.5;
+        this.heading = vec(0,-1);
     }
 
 
@@ -41,6 +44,60 @@ export class VehicleActor extends Actor {
             ],
         }));
         this.graphics.use('idle');
+
+        // child actor: front axle
+        const frontAxle = new Actor({
+            name: 'frontAxle',
+            width: 60,
+            height: 1,
+            color: Color.Yellow,
+            pos: vec(0, - this.frontAxlePosition),
+        });
+        this.addChild(frontAxle);
+
+        // children actors: wheels axles
+        const wheelAxisRotation = this.getWheelAxisRotation();
+        const leftWheelAxis = new Actor({
+            name: 'leftWheelAxis',
+            width: 1,
+            height: 40,
+            color: Color.Yellow,
+            pos: vec(-frontAxle.width / 2, - this.frontAxlePosition),
+            rotation: wheelAxisRotation,
+        });
+        const rightWheelAxis = new Actor({
+            name: 'rightWheelAxis',
+            width: 1,
+            height: 40,
+            color: Color.Yellow,
+            pos: vec(frontAxle.width / 2, - this.frontAxlePosition),
+            rotation: wheelAxisRotation,
+        });
+        this.addChild(leftWheelAxis);
+        this.addChild(rightWheelAxis);
+
+        const leftWheel = new Actor({
+            name: 'leftWheelAxis',
+            width: 10,
+            height: 20,
+            color: Color.Black,
+            pos: vec(-frontAxle.width / 2, - this.frontAxlePosition),
+            rotation: wheelAxisRotation,
+            z: -1,
+        });
+        const rightWheel = new Actor({
+            name: 'rightWheelAxis',
+            width: 10,
+            height: 20,
+            color: Color.Black,
+            pos: vec(frontAxle.width / 2, - this.frontAxlePosition),
+            rotation: wheelAxisRotation,
+            z: -1,
+        });
+        this.addChild(leftWheel);
+        this.addChild(rightWheel);
+
+        // rotate entire group according to current heading
         this.rotateToHeading();
     }
 
@@ -54,5 +111,15 @@ export class VehicleActor extends Actor {
      */
     private rotateToHeading(): void {
         this.rotation = Math.atan2(this.heading.y, this.heading.x) + Math.PI / 2;
+    }
+
+
+    /**
+     * Calculates the current rotation (in radians) of the wheel axis based on the steering angle.
+     *
+     * @return {number} The rotation angle of the wheel axis in radians.
+     */
+    private getWheelAxisRotation(): number {
+        return this.steeringAngle;
     }
 }
