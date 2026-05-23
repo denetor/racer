@@ -36,5 +36,18 @@ export class VehicleActor extends Actor {
             ],
         }));
         this.graphics.use('idle');
+        this.rotateToHeading();
+    }
+
+
+    /**
+     * Rotates the object to face the current heading direction by adjusting its rotation property.
+     * The rotation is calculated based on the arctangent of the heading vector's y and x components,
+     * with a pi/2 adjustment to align correctly.
+     *
+     * @return {void} This method does not return a value.
+     */
+    private rotateToHeading(): void {
+        this.rotation = Math.atan2(this.heading.y, this.heading.x) + Math.PI / 2;
     }
 }
