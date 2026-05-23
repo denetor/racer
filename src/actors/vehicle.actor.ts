@@ -1,12 +1,20 @@
-import {Actor, Animation, AnimationStrategy, Engine, SpriteSheet, vec} from "excalibur";
+import {Actor, Animation, AnimationStrategy, Engine, SpriteSheet, vec, Vector} from "excalibur";
 import {Resources} from "@/resources";
 
 export class VehicleActor extends Actor {
+    steeringAngle: number = 0.0;
+    // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
+    // that is the actual force taht moves the sprite
+    heading: Vector = vec(1,0);
+
+
     constructor() {
         super({
             name: 'Vehicle',
             pos: vec(150, 150),
         });
+        this.steeringAngle = 0.0;
+        this.heading = vec(1,0);
     }
 
 

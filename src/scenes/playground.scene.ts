@@ -1,7 +1,10 @@
 import {Engine, Scene} from "excalibur";
 import {VehicleActor} from "@/actors/vehicle.actor";
+import {DriveInputSystem} from "@/systems/drive-input.system";
+import {DrivableComponent} from "@/components/drivable.component";
 
 export class PlaygroundScene extends Scene {
+
 
     constructor() {
         super();
@@ -9,9 +12,16 @@ export class PlaygroundScene extends Scene {
 
 
     override onInitialize(engine: Engine): void {
-        // Scene.onInitialize is where we recommend you perform the composition for your game
+        // systems
+        this.world.add(DriveInputSystem);
+
+        // actors
         const player = new VehicleActor();
-        this.add(player); // Actors need to be added to a scene to be drawn
+        if (player) {
+            player.addComponent(new DrivableComponent());
+            this.add(player);
+        }
+
     }
 
 
