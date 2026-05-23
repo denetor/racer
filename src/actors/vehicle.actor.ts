@@ -2,20 +2,21 @@ import {Actor, Animation, AnimationStrategy, Color, Engine, SpriteSheet, vec, Ve
 import {Resources} from "@/resources";
 
 export class VehicleActor extends Actor {
-    // current steering angle, in radians. 0 = no steering, negative = left, positive = right
-    protected steeringAngle: number = 0.6;
-    protected maxSteeringAngle: number = 0.6;
-    // speed of steering return to 0 when no steer input is given, in radians/sec
-    protected steeringReturnSpeed: number = 0.8;
-    // distance, in pixels, from vehicle center to front axle
-    protected frontAxlePosition: number = 33;
     // vehicle weight, in kg
-    protected weight: number = 1000.0;
+    public weight: number = 1000.0;
     // max speed, in px/s
-    protected maxSpeed: number = 200;
+    public maxSpeed: number = 200;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force taht moves the sprite
-    protected heading: Vector = vec(0.5,0.4);
+    public heading: Vector = vec(0.5,0.4);
+    // current steering angle, in radians. 0 = no steering, negative = left, positive = right
+    public steeringAngle: number = -0.6;
+    public maxSteeringAngle: number = 0.6;
+    // speed of change of steering angle, in radians/sec
+    public steeringSpeed: number = 1.8;
+    public steeringReturnSpeed: number = 2.8;
+    // distance, in pixels, from vehicle center to front axle
+    protected frontAxlePosition: number = 33;
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;

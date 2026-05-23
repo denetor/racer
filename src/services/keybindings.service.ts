@@ -15,6 +15,10 @@ export class KeybindingsService {
                 return Keys.KeyA;
             case Keybindings.Brake:
                 return Keys.KeyZ;
+            case Keybindings.SteerLeft:
+                return Keys.ArrowLeft;
+            case Keybindings.SteerRight:
+                return Keys.ArrowRight;
             default:
                 return undefined as any as Keys;
         }

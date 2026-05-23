@@ -41,18 +41,19 @@ export class DriveInputSystem extends System {
             if (braking) speed -= (this.brakingForce / drivable.weight) * dt;
             if (!accelerating && !braking) speed -= (this.frictionForce / drivable.weight) * dt;
 
-            if (!steeringLeft && !steeringRight) {
-                const steerDelta = delta * drivable.steeringReturnSpeed / 1000;
-                if (drivable.steeringAngle > 0) {
-                    drivable.steeringAngle -= steerDelta;
-                    if (drivable.steeringAngle < 0) {
-                        drivable.steeringAngle = 0;
-                    }
-                } else if (drivable.steeringAngle < 0) {
-                    drivable.steeringAngle += steerDelta;
-                    if (drivable.steeringAngle > 0) {
-                        drivable.steeringAngle = 0;
-                    }
+            if (steeringLeft || steeringRight) {
+                const steerDelta = delta * drivable.steeringSpeed / 1000 * (steeringLeft ? -1 : 1);
+                drivable.steeringAngle += steerDelta;
+                if (steerDelta > 0 && drivable.steeringAngle > drivable.maxSteeringAngle) {
+                    drivable.steeringAngle = drivable.maxSteeringAngle
+                } else if (steerDelta < 0 && drivable.steeringAngle < - drivable.maxSteeringAngle) {
+                    drivable.steeringAngle = - drivable.maxSteeringAngle
+                }
+            } else if (!steeringLeft && !steeringRight) {
+                const steerDelta = delta * drivable.steeringReturnSpeed / 1000 * (drivable.steeringAngle > 0 ? -1 : 1);
+                drivable.steeringAngle += steerDelta;
+                if ((steerDelta < 0 && drivable.steeringAngle < 0) || (steerDelta > 0 && drivable.steeringAngle > 0)) {
+                    drivable.steeringAngle = 0;
                 }
             }
 
