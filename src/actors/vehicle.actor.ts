@@ -2,7 +2,12 @@ import {Actor, Animation, AnimationStrategy, Engine, SpriteSheet, vec, Vector} f
 import {Resources} from "@/resources";
 
 export class VehicleActor extends Actor {
+    // current steering angle
     steeringAngle: number = 0.0;
+    // vehicle weight, in kg
+    weight: number = 1000.0;
+    // max speed, in px/s
+    maxSpeed: number = 200;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force taht moves the sprite
     heading: Vector = vec(1,0);
@@ -11,10 +16,10 @@ export class VehicleActor extends Actor {
     constructor() {
         super({
             name: 'Vehicle',
-            pos: vec(150, 150),
+            pos: vec(50, 50),
         });
         this.steeringAngle = 0.0;
-        this.heading = vec(1,0);
+        this.heading = vec(0.55,0.23);
     }
 
 

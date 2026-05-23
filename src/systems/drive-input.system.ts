@@ -1,14 +1,18 @@
-import {Engine, Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
+import {Engine, Query, System, SystemPriority, SystemType, World} from "excalibur";
 import {KeybindingsService} from "@/services/keybindings.service";
 import {Keybindings} from "@/enums/keybindings.enum";
 import {DrivableComponent} from "@/components/drivable.component";
 import {VehicleActor} from "@/actors/vehicle.actor";
 
 export class DriveInputSystem extends System {
-    private readonly _engine: Engine;
-    protected query: Query<typeof DrivableComponent>;
     public priority = SystemPriority.Higher;
     public systemType = SystemType.Update;
+    protected query: Query<typeof DrivableComponent>;
+    private readonly _engine: Engine;
+    private accelerationForce = 80000;
+    private brakingForce = 150000;
+    private frictionForce = 30000;
+
 
     constructor(world: World) {
         super();
@@ -22,13 +26,21 @@ export class DriveInputSystem extends System {
 
         if (this.query && this.query.entities && this.query.entities.length > 0) {
             const drivable: VehicleActor = this.query.entities[0] as VehicleActor;
+            if (!drivable) return;
 
-            if (drivable && keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate))) {
-                drivable.vel = vec(10,0);
-            }
-            if (drivable && keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake))) {
-                drivable.vel = vec(0,0);
-            }
+            const dt = delta / 1000;
+            const dir = drivable.heading.normalize();
+            let speed = drivable.vel.magnitude;
+
+            const accelerating = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate));
+            const braking = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake));
+
+            if (accelerating) speed += (this.accelerationForce / drivable.weight) * dt;
+            if (braking) speed -= (this.brakingForce / drivable.weight) * dt;
+            if (!accelerating && !braking) speed -= (this.frictionForce / drivable.weight) * dt;
+
+            speed = Math.min(Math.max(speed, 0), drivable.maxSpeed);
+            drivable.vel = dir.scale(speed);
         }
     }
 }
