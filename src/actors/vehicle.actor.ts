@@ -4,11 +4,17 @@ import {Resources} from "@/resources";
 export class VehicleActor extends Actor {
     // vehicle weight, in kg
     public weight: number = 1000.0;
+    // vehicle acceleration force, think this as engine power
+    public accelerationForce = 200000;
+    // vehicle braking force, think this as braking power
+    public brakingForce = 500000;
+    // vehicle friction
+    public frictionForce = 30000;
     // max speed, in px/s
     public maxSpeed: number = 400;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force taht moves the sprite
-    public heading: Vector = vec(0, -1);
+    public heading: Vector = vec(1, 0);
     public speed: number = 0;
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
     public steeringAngle: number = 0.0;
@@ -18,7 +24,7 @@ export class VehicleActor extends Actor {
     public steeringReturnSpeed: number = 2.8;
     // distance, in pixels, from vehicle center to wheel axles
     protected frontAxlePosition: number = -33;
-    protected rearAxlePosition: number = 30;
+    protected rearAxlePosition: number = 50;
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
