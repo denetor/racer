@@ -2,6 +2,7 @@ import {Actor, Color, Engine, Scene, vec} from "excalibur";
 import {VehicleActor} from "@/actors/vehicle.actor";
 import {DriveInputSystem} from "@/systems/drive-input.system";
 import {DrivableComponent} from "@/components/drivable.component";
+import {CameraFollowPlayerSystem} from "@/systems/camera-follow-player.system";
 
 export class PlaygroundScene extends Scene {
 
@@ -14,10 +15,12 @@ export class PlaygroundScene extends Scene {
     override onInitialize(engine: Engine): void {
         // systems
         this.world.add(DriveInputSystem);
+        this.world.add(CameraFollowPlayerSystem);
 
         // actors
         const player = new VehicleActor();
         if (player) {
+            player.addTag('player');
             player.addComponent(new DrivableComponent());
             this.add(player);
         }
