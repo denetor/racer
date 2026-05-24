@@ -30,8 +30,7 @@ export class DriveInputSystem extends System {
             if (!drivable) return;
 
             const dt = delta / 1000;
-            const dir = drivable.heading.normalize();
-            let speed = drivable.vel.magnitude;
+            let speed = drivable.speed;
 
             const accelerating = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate));
             const braking = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake));
@@ -55,7 +54,7 @@ export class DriveInputSystem extends System {
             }
 
             speed = Math.min(Math.max(speed, 0), drivable.maxSpeed);
-            drivable.vel = dir.scale(speed);
+            drivable.speed = speed;
         }
     }
 }

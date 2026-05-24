@@ -5,18 +5,20 @@ export class VehicleActor extends Actor {
     // vehicle weight, in kg
     public weight: number = 1000.0;
     // max speed, in px/s
-    public maxSpeed: number = 200;
+    public maxSpeed: number = 400;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force taht moves the sprite
-    public heading: Vector = vec(0.5,0.4);
+    public heading: Vector = vec(0, -1);
+    public speed: number = 0;
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
-    public steeringAngle: number = -0.6;
-    public maxSteeringAngle: number = 0.6;
+    public steeringAngle: number = 0.0;
+    public maxSteeringAngle: number = 0.4;
     // speed of change of steering angle, in radians/sec
     public steeringSpeed: number = 1.8;
     public steeringReturnSpeed: number = 2.8;
-    // distance, in pixels, from vehicle center to front axle
-    protected frontAxlePosition: number = 33;
+    // distance, in pixels, from vehicle center to wheel axles
+    protected frontAxlePosition: number = -33;
+    protected rearAxlePosition: number = 30;
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
@@ -51,15 +53,23 @@ export class VehicleActor extends Actor {
         }));
         this.graphics.use('idle');
 
-        // child actor: front axle
+        // children actors: front and read axles
         const frontAxle = new Actor({
             name: 'frontAxle',
             width: 60,
             height: 1,
             color: Color.Yellow,
-            pos: vec(0, - this.frontAxlePosition),
+            pos: vec(0, this.frontAxlePosition),
+        });
+        const rearAxle = new Actor({
+            name: 'rearAxle',
+            width: 60,
+            height: 1,
+            color: Color.Yellow,
+            pos: vec(0, this.rearAxlePosition),
         });
         this.addChild(frontAxle);
+        this.addChild(rearAxle);
 
         // children actors: wheels axles
         const wheelAxisRotation = this.getWheelAxisRotation();
@@ -68,7 +78,7 @@ export class VehicleActor extends Actor {
             width: 1,
             height: 40,
             color: Color.Yellow,
-            pos: vec(-frontAxle.width / 2, - this.frontAxlePosition),
+            pos: vec(-frontAxle.width / 2, this.frontAxlePosition),
             rotation: wheelAxisRotation,
         });
         this.rightWheelAxis = new Actor({
@@ -76,7 +86,7 @@ export class VehicleActor extends Actor {
             width: 1,
             height: 40,
             color: Color.Yellow,
-            pos: vec(frontAxle.width / 2, - this.frontAxlePosition),
+            pos: vec(frontAxle.width / 2, this.frontAxlePosition),
             rotation: wheelAxisRotation,
         });
         this.addChild(this.leftWheelAxis);
@@ -87,7 +97,7 @@ export class VehicleActor extends Actor {
             width: 10,
             height: 20,
             color: Color.Black,
-            pos: vec(-frontAxle.width / 2, - this.frontAxlePosition),
+            pos: vec(-frontAxle.width / 2, this.frontAxlePosition),
             rotation: wheelAxisRotation,
             z: -1,
         });
@@ -96,7 +106,7 @@ export class VehicleActor extends Actor {
             width: 10,
             height: 20,
             color: Color.Black,
-            pos: vec(frontAxle.width / 2, - this.frontAxlePosition),
+            pos: vec(frontAxle.width / 2, this.frontAxlePosition),
             rotation: wheelAxisRotation,
             z: -1,
         });
@@ -111,11 +121,20 @@ export class VehicleActor extends Actor {
 
     onPostUpdate(engine: Engine, elapsed: number) {
         super.onPostUpdate(engine, elapsed);
+
+        // update wheels rotation
         const wheelAxisRotation = this.getWheelAxisRotation();
         this.leftWheelAxis.rotation = wheelAxisRotation;
         this.rightWheelAxis.rotation = wheelAxisRotation;
         this.leftWheel.rotation = wheelAxisRotation;
         this.rightWheel.rotation = wheelAxisRotation;
+
+        const dt = elapsed / 1000;
+        const L = Math.abs(this.frontAxlePosition) + Math.abs(this.rearAxlePosition);
+        const deltaTheta = (this.speed * Math.tan(this.steeringAngle) / L) * dt;
+        this.heading = this.heading.rotate(deltaTheta);
+        this.vel = this.heading.normalize().scale(this.speed);
+        this.rotateToHeading();
     }
 
 
