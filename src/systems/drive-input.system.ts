@@ -57,7 +57,10 @@ export class DriveInputSystem extends System {
 
             // change current velocity (both magnitude and heading)
             const L = Math.abs(drivable.frontAxlePosition) + Math.abs(drivable.rearAxlePosition);
-            const deltaTheta = (speed * Math.tan(drivable.steeringAngle) / L) * dt;
+            const speedFactor = 1 - Math.pow(speed / drivable.maxSpeed, 2) * drivable.understeerSpeedStrength;
+            const angleFactor = 1 - Math.pow(Math.abs(drivable.steeringAngle) / drivable.maxSteeringAngle, 2) * drivable.understeerAngleStrength;
+            const effectiveSteering = drivable.steeringAngle * speedFactor * angleFactor;
+            const deltaTheta = (speed * Math.tan(effectiveSteering) / L) * dt;
             drivable.heading = drivable.heading.rotate(deltaTheta);
             drivable.vel = drivable.heading.normalize().scale(speed);
         }
