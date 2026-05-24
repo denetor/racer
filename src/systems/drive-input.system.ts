@@ -28,17 +28,15 @@ export class DriveInputSystem extends System {
             if (!drivable) return;
 
             const dt = delta / 1000;
-            let speed = drivable.speed;
+            let speed = drivable.vel.magnitude;
 
+            // detect user input
             const accelerating = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate));
             const braking = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake));
             const steeringLeft = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerLeft));
             const steeringRight = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerRight));
 
-            if (accelerating) speed += (drivable.accelerationForce / drivable.weight) * dt;
-            if (braking) speed -= (drivable.brakingForce / drivable.weight) * dt;
-            if (!accelerating && !braking) speed -= (drivable.frictionForce / drivable.weight) * dt;
-
+            // change current steering angle
             if (steeringLeft || steeringRight) {
                 const steerDelta = delta * drivable.steeringSpeed / 1000 * (steeringLeft ? -1 : 1);
                 drivable.steeringAngle = MathService.sumClamp(drivable.steeringAngle, steerDelta, - drivable.maxSteeringAngle, drivable.maxSteeringAngle);
@@ -51,8 +49,17 @@ export class DriveInputSystem extends System {
                 }
             }
 
+            // change current speed magnitude
+            if (accelerating) speed += (drivable.accelerationForce / drivable.weight) * dt;
+            if (braking) speed -= (drivable.brakingForce / drivable.weight) * dt;
+            if (!accelerating && !braking) speed -= (drivable.frictionForce / drivable.weight) * dt;
             speed = Math.min(Math.max(speed, 0), drivable.maxSpeed);
-            drivable.speed = speed;
+
+            // change current velocity (both magnitude and heading)
+            const L = Math.abs(drivable.frontAxlePosition) + Math.abs(drivable.rearAxlePosition);
+            const deltaTheta = (speed * Math.tan(drivable.steeringAngle) / L) * dt;
+            drivable.heading = drivable.heading.rotate(deltaTheta);
+            drivable.vel = drivable.heading.normalize().scale(speed);
         }
     }
 }

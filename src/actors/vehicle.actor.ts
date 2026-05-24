@@ -13,9 +13,8 @@ export class VehicleActor extends Actor {
     // max speed, in px/s
     public maxSpeed: number = 400;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
-    // that is the actual force taht moves the sprite
+    // that is the actual force that moves the sprite
     public heading: Vector = vec(1, 0);
-    public speed: number = 0;
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
     public steeringAngle: number = 0.0;
     public maxSteeringAngle: number = 0.4;
@@ -23,8 +22,8 @@ export class VehicleActor extends Actor {
     public steeringSpeed: number = 1.8;
     public steeringReturnSpeed: number = 2.8;
     // distance, in pixels, from vehicle center to wheel axles
-    protected frontAxlePosition: number = -33;
-    protected rearAxlePosition: number = 50;
+    public frontAxlePosition: number = -33;
+    public rearAxlePosition: number = 50;
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
@@ -67,15 +66,15 @@ export class VehicleActor extends Actor {
             color: Color.Yellow,
             pos: vec(0, this.frontAxlePosition),
         });
-        const rearAxle = new Actor({
-            name: 'rearAxle',
-            width: 60,
-            height: 1,
-            color: Color.Yellow,
-            pos: vec(0, this.rearAxlePosition),
-        });
-        this.addChild(frontAxle);
-        this.addChild(rearAxle);
+        // const rearAxle = new Actor({
+        //     name: 'rearAxle',
+        //     width: 60,
+        //     height: 1,
+        //     color: Color.Yellow,
+        //     pos: vec(0, this.rearAxlePosition),
+        // });
+        // this.addChild(frontAxle);
+        // this.addChild(rearAxle);
 
         // children actors: wheels axles
         const wheelAxisRotation = this.getWheelAxisRotation();
@@ -95,8 +94,8 @@ export class VehicleActor extends Actor {
             pos: vec(frontAxle.width / 2, this.frontAxlePosition),
             rotation: wheelAxisRotation,
         });
-        this.addChild(this.leftWheelAxis);
-        this.addChild(this.rightWheelAxis);
+        // this.addChild(this.leftWheelAxis);
+        // this.addChild(this.rightWheelAxis);
 
         this.leftWheel = new Actor({
             name: 'leftWheelAxis',
@@ -135,11 +134,7 @@ export class VehicleActor extends Actor {
         this.leftWheel.rotation = wheelAxisRotation;
         this.rightWheel.rotation = wheelAxisRotation;
 
-        const dt = elapsed / 1000;
-        const L = Math.abs(this.frontAxlePosition) + Math.abs(this.rearAxlePosition);
-        const deltaTheta = (this.speed * Math.tan(this.steeringAngle) / L) * dt;
-        this.heading = this.heading.rotate(deltaTheta);
-        this.vel = this.heading.normalize().scale(this.speed);
+        // update sprite direction according to heading
         this.rotateToHeading();
     }
 
