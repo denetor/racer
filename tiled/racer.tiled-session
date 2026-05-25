@@ -1,0 +1,33 @@
+{
+    "activeFile": "track-playground.tmx",
+    "expandedProjectPaths": [
+    ],
+    "fileStates": {
+        "spritesheet_tiles.tsx": {
+            "scaleInDock": 0.5,
+            "scaleInEditor": 1
+        },
+        "track-playground.tmx": {
+            "scale": 0.75,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 963.3333333333331,
+                "y": 1887.9999999999998
+            }
+        }
+    },
+    "last.imagePath": "/home/nicola/prj/racer/public/images/spritesheets",
+    "map.height": 64,
+    "map.lastUsedFormat": "tmx",
+    "map.width": 64,
+    "openFiles": [
+        "spritesheet_tiles.tsx",
+        "track-playground.tmx"
+    ],
+    "project": "racer.tiled-project",
+    "recentFiles": [
+        "spritesheet_tiles.tsx",
+        "track-playground.tmx"
+    ],
+    "tileset.lastUsedFormat": "tsx"
+}
