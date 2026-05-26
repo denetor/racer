@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1-8-g449813058" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="32" tileheight="32" infinite="0" nextlayerid="5" nextobjectid="7">
+<map version="1.10" tiledversion="1.12.1-8-g449813058" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="32" tileheight="32" infinite="0" nextlayerid="5" nextobjectid="8">
  <tileset firstgid="1" source="spritesheet_tiles.tsx"/>
  <layer id="1" name="background" width="64" height="64">
   <data encoding="csv">
@@ -206,10 +206,27 @@
 </data>
  </layer>
  <objectgroup id="4" name="terrains">
-  <object id="1" name="track-0" x="324" y="1473.33">
+  <object id="1" name="track-0" type="surface" x="324" y="1473.33">
    <polygon points="0,0 1274.67,-4 1277.33,-132 800,-130.667 744,-150.667 710.667,-197.333 704,-252 700,-512 1052,-508 986.667,-384 1417.33,-384 1492,-378.667 1536,-341.333 1557.33,-300 1564,-226.667 1561.33,153.333 1542.67,201.333 1508,237.333 1448,256 -1.33333,250.667"/>
+   <properties>
+       <property name="terrainType" type="string" value="tarmac"/>
+   </properties>
   </object>
-  <object id="3" name="grass-0" x="324" y="1346.67" width="1273.33" height="120"/>
-  <object id="6" name="grass-1" x="165.333" y="1730.67" width="1594.67" height="314.667"/>
+  <object id="3" name="grass-0" type="surface" x="324" y="1346.67" width="1273.33" height="120">
+    <properties>
+      <property name="terrainType" type="string" value="grass"/>
+    </properties>
+  </object>
+  <object id="6" name="grass-1" type="surface" x="165.333" y="1730.67" width="1594.67" height="314.667">
+   <properties>
+    <property name="terrainType" type="string" value="grass"/>
+   </properties>
+  </object>
+  <object id="7" name="gravel-0" type="surface" x="1763.33" y="1732.67">
+   <polygon points="0,0 8.66667,36 46,58.6667 65.3333,62 194.667,58 218,57.3333 250,28 258,-25.3333 245.333,-54 258,-85.3333 244,-117.333 256,-147.333 244,-179.333 260,-216.667 243.333,-246 256.667,-280 246.667,-312.667 260,-348 245.333,-374 258.667,-406.667 243.333,-437.333 261.333,-470.667 246,-502 261.333,-537.333 246,-565.333 258,-597.333 242.667,-633.333 258.667,-657.333 247.333,-707.333 257.333,-724.667 245.333,-756.667 251.333,-777.333 246.667,-813.333 224.667,-832.667 187.333,-837.333 172.667,-843.333 153.333,-837.333 136,-842 106,-827.333 78,-842 44.6667,-829.333 13.3333,-844 -19.3333,-832.667 -50,-842 -81.3333,-829.333 -98.6667,-835.333 -119.333,-834.667 -146.667,-821.333 -162,-802.667 -163.333,-770.667 -171.333,-754.667 -156.667,-728 -170.667,-694 -153.333,-664.667 -159.333,-649.333 -162.667,-645.333 5.33333,-645.333 42,-640 72,-630.667 92.6667,-608 113.333,-576.667 123.333,-526.667 125.333,-452 124.667,-102.667 112,-71.3333 92.6667,-43.3333 72.6667,-28 48,-14.6667 6.66667,-2.66667"/>
+   <properties>
+       <property name="terrainType" type="string" value="graveltrap"/>
+   </properties>
+  </object>
  </objectgroup>
 </map>

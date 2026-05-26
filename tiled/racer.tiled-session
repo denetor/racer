@@ -25,6 +25,7 @@
         "track-playground.tmx"
     ],
     "project": "racer.tiled-project",
+    "property.type": "float",
     "recentFiles": [
         "spritesheet_tiles.tsx",
         "track-playground.tmx"

@@ -4,6 +4,7 @@ import {DriveInputSystem} from "@/systems/drive-input.system";
 import {DrivableComponent} from "@/components/drivable.component";
 import {CameraFollowPlayerSystem} from "@/systems/camera-follow-player.system";
 import {Resources} from "@/resources";
+import {SurfacesService} from "@/services/surfaces.service";
 
 export class PlaygroundScene extends Scene {
 
@@ -16,7 +17,8 @@ export class PlaygroundScene extends Scene {
     override onInitialize(engine: Engine): void {
         // read map and its properties
         Resources.playgroundMap.addToScene(this);
-        
+        SurfacesService.setProperties(Resources.playgroundMap);
+
         // systems
         this.world.add(DriveInputSystem);
         this.world.add(CameraFollowPlayerSystem);

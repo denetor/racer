@@ -11,7 +11,9 @@ export const Resources = {
       './tiled/track-playground.tmx',
       {
         strict: false,
-        // entityClassNameFactories: {},
+        entityClassNameFactories: {
+            // surface: SurfaceActor.factory,
+        },
         // useTilemapCameraStrategy: true,
       }
   ),
