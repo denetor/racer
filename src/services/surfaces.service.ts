@@ -18,32 +18,41 @@ export class SurfacesService {
         for (const surfaceObject of surfaceObjects) {
             const surfaceActor: SurfaceActor = map.getEntityByObject(surfaceObject) as SurfaceActor;
             if (surfaceActor) {
+                surfaceActor.addTag('surface');
                 switch (surfaceObject.properties.get('terraintype')) {
                     case 'tarmac':
+                        surfaceActor.surfaceName = 'tarmac';
                         surfaceActor.powerFactor = 1.0;
                         surfaceActor.dragFactor = 0.05;
                         surfaceActor.gripFactor = 1.0;
+                        surfaceActor.addTag('surface-tarmac');
                         break;
                     case 'grass':
+                        surfaceActor.surfaceName = 'grass';
                         surfaceActor.powerFactor = 0.6;
                         surfaceActor.dragFactor = 0.5;
                         surfaceActor.gripFactor = 0.3;
-                        break;
-                    case 'grass':
-                        surfaceActor.powerFactor = 0.6;
-                        surfaceActor.dragFactor = 0.5;
-                        surfaceActor.gripFactor = 0.3;
+                        surfaceActor.addTag('surface-grass');
                         break;
                     case 'graveltrap':
+                        surfaceActor.surfaceName = 'graveltrap';
                         surfaceActor.powerFactor = 0.3;
                         surfaceActor.dragFactor = 0.8;
                         surfaceActor.gripFactor = 0.5;
+                        surfaceActor.addTag('surface-graveltrap');
                         break;
                     default:
-                        surfaceActor.powerFactor = 1.0;
-                        surfaceActor.dragFactor = 0.05;
-                        surfaceActor.gripFactor = 1.0;
                 }
+                surfaceActor.on('collisionstart', (evt) => {
+                    if (evt.other && evt.other && evt.other.owner) {
+                        console.log(evt.other.owner);
+                    }
+                });
+                // surfaceActor.on('collisionsend', (evt) => {
+                //     if (evt.other && evt.other && evt.other.owner) {
+                //         console.log(evt.other.owner);
+                //     }
+                // });
             }
         }
     }

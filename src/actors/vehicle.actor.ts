@@ -26,12 +26,16 @@ export class VehicleActor extends Actor {
     public understeerAngleStrength: number = 0.15;
     // distance, in pixels, from vehicle center to wheel axles
     public frontAxlePosition: number = -33;
-    public rearAxlePosition: number = 50;
+    public rearAxlePosition: number = 32;
+    public frontAxleWidth: number = 60;
+    public rearAxleWidth: number = 62;
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
-    protected leftWheel: Actor = null as any;
-    protected rightWheel: Actor = null as any;
+    protected frontLeftWheel: Actor = null as any;
+    protected frontRightWheel: Actor = null as any;
+    protected rearLeftWheel: Actor = null as any;
+    protected rearRightWheel: Actor = null as any;
 
 
     constructor() {
@@ -64,18 +68,18 @@ export class VehicleActor extends Actor {
         // children actors: front and read axles
         const frontAxle = new Actor({
             name: 'frontAxle',
-            width: 60,
+            width: this.frontAxleWidth,
             height: 1,
             color: Color.Yellow,
             pos: vec(0, this.frontAxlePosition),
         });
-        // const rearAxle = new Actor({
-        //     name: 'rearAxle',
-        //     width: 60,
-        //     height: 1,
-        //     color: Color.Yellow,
-        //     pos: vec(0, this.rearAxlePosition),
-        // });
+        const rearAxle = new Actor({
+            name: 'rearAxle',
+            width: this.rearAxleWidth,
+            height: 1,
+            color: Color.Yellow,
+            pos: vec(0, this.rearAxlePosition),
+        });
         // this.addChild(frontAxle);
         // this.addChild(rearAxle);
 
@@ -100,8 +104,8 @@ export class VehicleActor extends Actor {
         // this.addChild(this.leftWheelAxis);
         // this.addChild(this.rightWheelAxis);
 
-        this.leftWheel = new Actor({
-            name: 'leftWheelAxis',
+        this.frontLeftWheel = new Actor({
+            name: 'frontLeftWheel',
             width: 10,
             height: 20,
             color: Color.Black,
@@ -109,8 +113,8 @@ export class VehicleActor extends Actor {
             rotation: wheelAxisRotation,
             z: -1,
         });
-        this.rightWheel = new Actor({
-            name: 'rightWheelAxis',
+        this.frontRightWheel = new Actor({
+            name: 'frontRightWheel',
             width: 10,
             height: 20,
             color: Color.Black,
@@ -118,8 +122,26 @@ export class VehicleActor extends Actor {
             rotation: wheelAxisRotation,
             z: -1,
         });
-        this.addChild(this.leftWheel);
-        this.addChild(this.rightWheel);
+        this.rearLeftWheel = new Actor({
+            name: 'rearLeftWheel',
+            width: 10,
+            height: 20,
+            color: Color.Black,
+            pos: vec(-rearAxle.width / 2, this.rearAxlePosition),
+            z: -1,
+        });
+        this.rearRightWheel = new Actor({
+            name: 'rearRightWheel',
+            width: 10,
+            height: 20,
+            color: Color.Black,
+            pos: vec(rearAxle.width / 2, this.rearAxlePosition),
+            z: -1,
+        });
+        this.addChild(this.frontLeftWheel);
+        this.addChild(this.frontRightWheel);
+        this.addChild(this.rearLeftWheel);
+        this.addChild(this.rearRightWheel);
 
         // rotate entire group according to current heading
         this.rotateToHeading();
@@ -134,8 +156,8 @@ export class VehicleActor extends Actor {
         const wheelAxisRotation = this.getWheelAxisRotation();
         this.leftWheelAxis.rotation = wheelAxisRotation;
         this.rightWheelAxis.rotation = wheelAxisRotation;
-        this.leftWheel.rotation = wheelAxisRotation;
-        this.rightWheel.rotation = wheelAxisRotation;
+        this.frontLeftWheel.rotation = wheelAxisRotation;
+        this.frontRightWheel.rotation = wheelAxisRotation;
 
         // update sprite direction according to heading
         this.rotateToHeading();
