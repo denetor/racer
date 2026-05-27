@@ -1,6 +1,6 @@
 import {Actor, Animation, AnimationStrategy, Color, Engine, SpriteSheet, vec, Vector} from "excalibur";
 import {Resources} from "@/resources";
-import {WheelFactor} from "@/models/grip-factor.model";
+import {WheelFactor} from "@/models/wheel-factor.model";
 
 export class VehicleActor extends Actor {
     // vehicle weight, in kg
@@ -30,7 +30,7 @@ export class VehicleActor extends Actor {
     public rearAxlePosition: number = 32;
     public frontAxleWidth: number = 60;
     public rearAxleWidth: number = 62;
-    public wheelFactors = new Map();
+    public wheelFactors: Map<string, WheelFactor> = new Map();
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
@@ -167,6 +167,20 @@ export class VehicleActor extends Actor {
 
         // update sprite direction according to heading
         this.rotateToHeading();
+    }
+
+
+    getAverageWheelFactors(): WheelFactor {
+        const wf = new WheelFactor();
+        const fl: WheelFactor = this.wheelFactors.get('frontLeftWheel') || new WheelFactor();
+        const fr: WheelFactor = this.wheelFactors.get('frontRightWheel') || new WheelFactor();
+        const rl: WheelFactor = this.wheelFactors.get('rearLeftWheel') || new WheelFactor();
+        const rr: WheelFactor = this.wheelFactors.get('rearRightWheel') || new WheelFactor();
+        wf.drag = (fl.drag + fr.drag + rl.drag + rr.drag) / 4;
+        wf.grip = (fl.grip + fr.grip + rl.grip + rr.grip) / 4;
+        wf.power = (fl.power + fr.power + rl.power + rr.power) / 4;
+
+        return wf;
     }
 
 

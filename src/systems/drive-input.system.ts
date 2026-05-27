@@ -4,6 +4,7 @@ import {Keybindings} from "@/enums/keybindings.enum";
 import {DrivableComponent} from "@/components/drivable.component";
 import {VehicleActor} from "@/actors/vehicle.actor";
 import {MathService} from "@/services/math.service";
+import {WheelFactor} from "@/models/wheel-factor.model";
 
 export class DriveInputSystem extends System {
     public priority = SystemPriority.Higher;
@@ -25,6 +26,7 @@ export class DriveInputSystem extends System {
 
         if (this.query && this.query.entities && this.query.entities.length > 0) {
             const drivable: VehicleActor = this.query.entities[0] as VehicleActor;
+            const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
             if (!drivable) return;
 
             const dt = delta / 1000;
@@ -50,9 +52,9 @@ export class DriveInputSystem extends System {
             }
 
             // change current speed magnitude
-            if (accelerating) speed += (drivable.accelerationForce / drivable.weight) * dt;
-            if (braking) speed -= (drivable.brakingForce / drivable.weight) * dt;
-            if (!accelerating && !braking) speed -= (drivable.frictionForce / drivable.weight) * dt;
+            if (accelerating) speed += (drivable.accelerationForce / drivable.weight) * averageWheelFactors.power * dt;
+            if (braking) speed -= ((drivable.brakingForce * averageWheelFactors.grip) / drivable.weight) * dt;
+            if (!accelerating && !braking) speed -= (drivable.frictionForce * 10 * averageWheelFactors.drag / drivable.weight) * dt;
             speed = Math.min(Math.max(speed, 0), drivable.maxSpeed);
 
             // change current velocity (both magnitude and heading)

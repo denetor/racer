@@ -33,14 +33,14 @@ export class SurfacesService {
                         surfaceActor.surfaceName = 'grass';
                         surfaceActor.powerFactor = 0.6;
                         surfaceActor.dragFactor = 0.5;
-                        surfaceActor.gripFactor = 0.3;
+                        surfaceActor.gripFactor = 0.5;
                         surfaceActor.addTag('surface-grass');
                         break;
                     case 'graveltrap':
                         surfaceActor.surfaceName = 'graveltrap';
                         surfaceActor.powerFactor = 0.3;
                         surfaceActor.dragFactor = 0.8;
-                        surfaceActor.gripFactor = 0.5;
+                        surfaceActor.gripFactor = 1.3;
                         surfaceActor.addTag('surface-graveltrap');
                         break;
                     default:
