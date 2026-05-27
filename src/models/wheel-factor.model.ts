@@ -1,5 +1,6 @@
 export class WheelFactor {
-    public drag: number = 0.0;
-    public power: number = 1.0;
-    public grip: number = 1.0;
+    // default values: as of grass
+    public drag: number = 0.5;
+    public power: number = 0.6;
+    public grip: number = 0.5;
 }

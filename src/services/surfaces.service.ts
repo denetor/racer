@@ -1,7 +1,7 @@
 import {PluginObject, TiledResource} from "@excaliburjs/plugin-tiled";
 import {SurfaceActor} from "@/actors/surface.actor";
 import {VehicleActor} from "@/actors/vehicle.actor";
-import {WheelFactor} from "@/models/grip-factor.model";
+import {WheelFactor} from "@/models/wheel-factor.model";
 
 export class SurfacesService {
 
@@ -47,9 +47,9 @@ export class SurfacesService {
                 }
                 surfaceActor.on('collisionstart', (evt) => {
                     if (evt.other && evt.other && evt.other.owner && evt.other.owner.parent && ['frontRightWheel', 'frontLeftWheel', 'rearRightWheel', 'rearLeftWheel'].includes(evt.other.owner.name)) {
-                        console.log(`${evt.other.owner.name} entering ${surfaceActor.name}`);
+                        // console.log(`${evt.other.owner.name} entering ${surfaceActor.name}`);
                         const vehicle: VehicleActor = evt.other.owner.parent as VehicleActor;
-                        const wheelFactor: WheelFactor = vehicle.wheelFactors.get(evt.other.owner.name);
+                        const wheelFactor: WheelFactor = vehicle.wheelFactors.get(evt.other.owner.name) || new WheelFactor();
                         wheelFactor.grip = surfaceActor.gripFactor;
                         wheelFactor.drag = surfaceActor.dragFactor;
                         wheelFactor.power = surfaceActor.powerFactor;

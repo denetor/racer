@@ -18,7 +18,7 @@ export class VehicleActor extends Actor {
     public heading: Vector = vec(1, 0);
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
     public steeringAngle: number = 0.0;
-    public maxSteeringAngle: number = 0.4;
+    public maxSteeringAngle: number = 0.5;
     // speed of change of steering angle, in radians/sec
     public steeringSpeed: number = 1.8;
     public steeringReturnSpeed: number = 2.8;
@@ -27,7 +27,7 @@ export class VehicleActor extends Actor {
     public understeerAngleStrength: number = 0.15;
     // distance, in pixels, from vehicle center to wheel axles
     public frontAxlePosition: number = -33;
-    public rearAxlePosition: number = 32;
+    public rearAxlePosition: number = 35;
     public frontAxleWidth: number = 60;
     public rearAxleWidth: number = 62;
     public wheelFactors: Map<string, WheelFactor> = new Map();
