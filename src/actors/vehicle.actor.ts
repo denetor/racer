@@ -1,5 +1,6 @@
 import {Actor, Animation, AnimationStrategy, Color, Engine, SpriteSheet, vec, Vector} from "excalibur";
 import {Resources} from "@/resources";
+import {WheelFactor} from "@/models/grip-factor.model";
 
 export class VehicleActor extends Actor {
     // vehicle weight, in kg
@@ -29,6 +30,7 @@ export class VehicleActor extends Actor {
     public rearAxlePosition: number = 32;
     public frontAxleWidth: number = 60;
     public rearAxleWidth: number = 62;
+    public wheelFactors = new Map();
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
@@ -43,6 +45,10 @@ export class VehicleActor extends Actor {
             name: 'Vehicle',
             pos: vec(80, 80),
         });
+        this.wheelFactors.set('frontLeftWheel', new WheelFactor());
+        this.wheelFactors.set('frontRightWheel', new WheelFactor());
+        this.wheelFactors.set('rearLeftWheel', new WheelFactor());
+        this.wheelFactors.set('rearRightWheel', new WheelFactor());
     }
 
 
