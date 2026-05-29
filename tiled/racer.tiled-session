@@ -8,11 +8,11 @@
             "scaleInEditor": 1
         },
         "track-playground.tmx": {
-            "scale": 0.75,
-            "selectedLayer": 3,
+            "scale": 1,
+            "selectedLayer": 1,
             "viewCenter": {
-                "x": 963.3333333333331,
-                "y": 1887.9999999999998
+                "x": 872.5,
+                "y": 1201
             }
         }
     },
@@ -25,7 +25,7 @@
         "track-playground.tmx"
     ],
     "project": "racer.tiled-project",
-    "property.type": "float",
+    "property.type": "string",
     "recentFiles": [
         "spritesheet_tiles.tsx",
         "track-playground.tmx"
