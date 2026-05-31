@@ -1,4 +1,4 @@
-import {Color, DisplayMode, Engine, FadeInOut} from "excalibur";
+import {Color, DisplayMode, Engine, FadeInOut, SolverStrategy} from "excalibur";
 import {loader} from "./resources";
 import {PlaygroundScene} from "@/scenes/playground.scene";
 
@@ -15,6 +15,9 @@ const game = new Engine({
   suppressPlayButton: true,
   scenes: {
     playground: PlaygroundScene,
+  },
+  physics: {
+    solver: SolverStrategy.Arcade
   },
   // physics: {
   //   solver: SolverStrategy.Realistic,

@@ -1,4 +1,15 @@
-import {Actor, Animation, AnimationStrategy, Color, Engine, SpriteSheet, vec, Vector} from "excalibur";
+import {
+    Actor,
+    Animation,
+    AnimationStrategy,
+    CollisionType,
+    Color,
+    Engine,
+    Shape,
+    SpriteSheet,
+    vec,
+    Vector
+} from "excalibur";
 import {Resources} from "@/resources";
 import {WheelFactor} from "@/models/wheel-factor.model";
 
@@ -44,6 +55,8 @@ export class VehicleActor extends Actor {
         super({
             name: 'Vehicle',
             pos: vec(80, 80),
+            collider: Shape.Box(70, 121),
+            collisionType: CollisionType.Active,
         });
         this.wheelFactors.set('frontLeftWheel', new WheelFactor());
         this.wheelFactors.set('frontRightWheel', new WheelFactor());
