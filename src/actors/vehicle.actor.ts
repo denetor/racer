@@ -1,11 +1,10 @@
 import {
     Actor,
     Animation,
-    AnimationStrategy,
+    AnimationStrategy, CircleCollider,
     CollisionType,
-    Color,
+    Color, CompositeCollider,
     Engine,
-    Shape,
     SpriteSheet,
     vec,
     Vector
@@ -55,7 +54,6 @@ export class VehicleActor extends Actor {
         super({
             name: 'Vehicle',
             pos: vec(80, 80),
-            collider: Shape.Box(70, 121),
             collisionType: CollisionType.Active,
         });
         this.wheelFactors.set('frontLeftWheel', new WheelFactor());
@@ -161,6 +159,15 @@ export class VehicleActor extends Actor {
         this.addChild(this.frontRightWheel);
         this.addChild(this.rearLeftWheel);
         this.addChild(this.rearRightWheel);
+
+        // colliders
+        this.body.collisionType = CollisionType.Active;
+        const collider1 = new CircleCollider({radius: 17, offset: vec(-17, -40)});
+        const collider2 = new CircleCollider({radius: 17, offset: vec(-17, 40)});
+        const collider3 = new CircleCollider({radius: 17, offset: vec(17, -40)});
+        const collider4 = new CircleCollider({radius: 17, offset: vec(17, 40)});
+        const collider = new CompositeCollider([collider1, collider2, collider3, collider4]);
+        this.collider.set(collider);
 
         // rotate entire group according to current heading
         this.rotateToHeading();
