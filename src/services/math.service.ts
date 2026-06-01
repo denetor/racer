@@ -16,4 +16,16 @@ export class MathService {
         if (sum < min) return min;
         return sum;
     }
+
+
+    /**
+     * Calculate X and Y components normalized to 1 given an angle in radians.
+     * With 0 radians, the resulting vector points towards top: {x: 0, y: 1}
+     */
+    static getHeadingFromRadians(radians: number): { x: number; y: number } {
+        return {
+            x: Math.sin(radians),
+            y: - Math.cos(radians)
+        };
+    }
 }

@@ -16,13 +16,13 @@ export class VehicleActor extends Actor {
     // vehicle weight, in kg
     public weight: number = 1000.0;
     // vehicle acceleration force, think this as engine power
-    public accelerationForce = 200000;
+    public accelerationForce = 300000;
     // vehicle braking force, think this as braking power
-    public brakingForce = 500000;
+    public brakingForce = 800000;
     // vehicle friction
     public frictionForce = 30000;
     // max speed, in px/s
-    public maxSpeed: number = 400;
+    public maxSpeed: number = 600;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force that moves the sprite
     public heading: Vector = vec(1, 0);
@@ -31,7 +31,7 @@ export class VehicleActor extends Actor {
     public maxSteeringAngle: number = 0.5;
     // speed of change of steering angle, in radians/sec
     public steeringSpeed: number = 1.8;
-    public steeringReturnSpeed: number = 2.8;
+    public steeringReturnSpeed: number = 3.0;
     // understeer: reduce steering effectiveness at high speed and high angle (0 = no effect, 1 = full reduction)
     public understeerSpeedStrength: number = 0.3;
     public understeerAngleStrength: number = 0.15;

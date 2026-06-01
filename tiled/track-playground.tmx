@@ -490,16 +490,16 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="grid">
-  <object id="12" name="pos-1" x="991.667" y="1631.33">
+  <object id="12" type="gridposition" name="pos-1" heading="1.570796" x="991.667" y="1631.33">
    <point/>
   </object>
-  <object id="13" name="pos-2" x="896.333" y="1503">
+  <object id="13" type="gridposition" name="pos-2" heading="1.570796" x="896.333" y="1503">
    <point/>
   </object>
-  <object id="14" name="pos-3" x="703.667" y="1631.33">
+  <object id="14" type="gridposition" name="pos-3" heading="1.570796" x="703.667" y="1631.33">
    <point/>
   </object>
-  <object id="15" name="pos-4" x="608" y="1503.33">
+  <object id="15" type="gridposition" name="pos-4" heading="1.570796" x="608" y="1503.33">
    <point/>
   </object>
  </objectgroup>
