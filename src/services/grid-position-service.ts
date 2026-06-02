@@ -6,7 +6,6 @@ export class GridPositionService {
         if (!map) return;
         const positionObjects: PluginObject[] = map.getObjectsByClassName('gridposition');
         if (!positionObjects || !positionObjects[0]) return;
-        console.log(positionObjects[0]);
         const pos = new GridPosition({
             position: 1,
             x: positionObjects[0].x,

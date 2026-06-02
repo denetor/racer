@@ -3,8 +3,8 @@ import {
     Animation,
     AnimationStrategy, CircleCollider,
     CollisionType,
-    Color, CompositeCollider,
-    Engine,
+    Color, CompositeCollider, EmitterType,
+    Engine, ParticleEmitter,
     SpriteSheet,
     vec,
     Vector
@@ -43,6 +43,9 @@ export class VehicleActor extends Actor {
     public frontAxleWidth: number = 60;
     public rearAxleWidth: number = 62;
     public wheelFactors: Map<string, WheelFactor> = new Map();
+    // smoke emitters
+    public idleEmitters: Actor[] = [];
+    public throttleEmitters: Actor[] = [];
     // child actors
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
@@ -50,6 +53,7 @@ export class VehicleActor extends Actor {
     protected frontRightWheel: Actor = null as any;
     protected rearLeftWheel: Actor = null as any;
     protected rearRightWheel: Actor = null as any;
+
 
 
     constructor() {
@@ -99,8 +103,8 @@ export class VehicleActor extends Actor {
             color: Color.Yellow,
             pos: vec(0, this.rearAxlePosition),
         });
-        this.addChild(frontAxle);
-        this.addChild(rearAxle);
+        // this.addChild(frontAxle);
+        // this.addChild(rearAxle);
 
         // children actors: wheels axles
         const wheelAxisRotation = this.getWheelAxisRotation();
@@ -162,6 +166,58 @@ export class VehicleActor extends Actor {
         this.addChild(this.rearLeftWheel);
         this.addChild(this.rearRightWheel);
 
+        // smoke emitters
+        const idleEmitter = new ParticleEmitter({
+            pos: vec(20, 58),
+            isEmitting: true,
+            emitRate: 10,
+            emitterType: EmitterType.Circle,
+            radius: 2,
+            particle: {
+                minSpeed: 5,
+                maxSpeed: 10,
+                minAngle: 1.2,
+                maxAngle: 1.8,
+                minSize: 2,
+                maxSize: 8,
+                startSize: 1,
+                endSize: 5,
+                acc: vec(0, 0),
+                life: 1000,
+                opacity: 0.75,
+                fade: true,
+                beginColor: Color.White,
+                endColor: Color.White,
+            }
+        });
+        const throttleEmitter = new ParticleEmitter({
+            pos: vec(20, 58),
+            isEmitting: true,
+            emitRate: 100,
+            emitterType: EmitterType.Circle,
+            radius: 3,
+            particle: {
+                minSpeed: 10,
+                maxSpeed: 40,
+                minAngle: 1.3,
+                maxAngle: 1.7,
+                minSize: 3,
+                maxSize: 12,
+                startSize: 1,
+                endSize: 5,
+                acc: vec(0, 0),
+                life: 1000,
+                opacity: 0.75,
+                fade: true,
+                beginColor: Color.White,
+                endColor: Color.White,
+            }
+        });
+        this.addChild(idleEmitter);
+        this.idleEmitters.push(idleEmitter);
+        this.addChild(throttleEmitter);
+        this.throttleEmitters.push(throttleEmitter);
+
         // colliders
         this.body.collisionType = CollisionType.Active;
         const collider1 = new CircleCollider({radius: 17, offset: vec(-17, -40)});
@@ -203,6 +259,27 @@ export class VehicleActor extends Actor {
         wf.power = (fl.power + fr.power + rl.power + rr.power) / 4;
 
         return wf;
+    }
+
+
+    setEmitters(category: string, enabled: boolean): void {
+        let selectedEmitters: Actor[];
+        switch (category.toLowerCase()) {
+            case 'idle':
+                selectedEmitters = this.idleEmitters;
+                break;
+            case 'throttle':
+                selectedEmitters = this.throttleEmitters;
+                break;
+        }
+        for (const emitter of selectedEmitters) {
+            if (enabled) {
+                emitter.emitRate = 250;
+            } else {
+                emitter.emitRate = 10;
+            }
+            emitter.graphics.hide();
+        }
     }
 
 

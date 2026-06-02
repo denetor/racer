@@ -57,6 +57,13 @@ export class DriveInputSystem extends System {
                 }
             }
 
+            // enable or disable throttle smoke emitter
+            if (accelerating) {
+                drivable.setEmitters('throttle', true);
+            } else {
+                drivable.setEmitters('throttle', false);
+            }
+
             // change current speed magnitude
             if (accelerating) speed += (drivable.accelerationForce / drivable.weight) * averageWheelFactors.power * (1 - averageWheelFactors.drag) * dt;
             if (braking) speed -= ((drivable.brakingForce * averageWheelFactors.grip) / drivable.weight) * dt;
