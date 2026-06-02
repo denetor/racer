@@ -28,7 +28,7 @@ export class VehicleActor extends Actor {
     public heading: Vector = vec(1, 0);
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
     public steeringAngle: number = 0.0;
-    public maxSteeringAngle: number = 0.5;
+    public maxSteeringAngle: number = 0.6;
     // speed of change of steering angle, in radians/sec
     public steeringSpeed: number = 1.8;
     public steeringReturnSpeed: number = 3.0;
@@ -97,8 +97,8 @@ export class VehicleActor extends Actor {
             color: Color.Yellow,
             pos: vec(0, this.rearAxlePosition),
         });
-        // this.addChild(frontAxle);
-        // this.addChild(rearAxle);
+        this.addChild(frontAxle);
+        this.addChild(rearAxle);
 
         // children actors: wheels axles
         const wheelAxisRotation = this.getWheelAxisRotation();

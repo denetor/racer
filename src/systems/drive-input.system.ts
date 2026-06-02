@@ -26,8 +26,9 @@ export class DriveInputSystem extends System {
 
         if (this.query && this.query.entities && this.query.entities.length > 0) {
             const drivable: VehicleActor = this.query.entities[0] as VehicleActor;
-            const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
             if (!drivable) return;
+            const heading_old = drivable.heading.clone();
+            const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
 
             const dt = delta / 1000;
             let speed = drivable.vel.magnitude;
@@ -63,8 +64,12 @@ export class DriveInputSystem extends System {
             const angleFactor = 1 - Math.pow(Math.abs(drivable.steeringAngle) / drivable.maxSteeringAngle, 2) * drivable.understeerAngleStrength;
             const effectiveSteering = drivable.steeringAngle * speedFactor * angleFactor * averageWheelFactors.grip;
             const deltaTheta = (speed * Math.tan(effectiveSteering) / L) * dt;
-            drivable.heading = drivable.heading.rotate(deltaTheta);
-            drivable.vel = drivable.heading.normalize().scale(speed);
+            drivable.heading = drivable.heading.rotate(deltaTheta)
+                .normalize(); // normalize each frame to prevent floating-point magnitude drift
+            drivable.vel = drivable.heading.scale(speed);
+            drivable.pos = drivable.pos.add(
+                drivable.heading.sub(heading_old).scale(drivable.rearAxlePosition)
+            );
         }
     }
 }
