@@ -12,4 +12,5 @@ export enum Keybindings {
     Brake,
     SteerLeft,
     SteerRight,
+    EngageReverse,
 }

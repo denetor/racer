@@ -38,6 +38,11 @@ export class DriveInputSystem extends System {
             const braking = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake));
             const steeringLeft = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerLeft));
             const steeringRight = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerRight));
+            // reverse gear, switchable only when still
+            if (keyboard.wasPressed(KeybindingsService.getKeyFor(Keybindings.EngageReverse)) && speed === 0) {
+                drivable.isReverse =!drivable.isReverse;
+                console.log(`Reverse: ${drivable.isReverse}`);
+            }
 
             // change current steering angle
             if (steeringLeft || steeringRight) {
@@ -56,17 +61,17 @@ export class DriveInputSystem extends System {
             if (accelerating) speed += (drivable.accelerationForce / drivable.weight) * averageWheelFactors.power * (1 - averageWheelFactors.drag) * dt;
             if (braking) speed -= ((drivable.brakingForce * averageWheelFactors.grip) / drivable.weight) * dt;
             if (!accelerating && !braking) speed -= (drivable.frictionForce * 10 * averageWheelFactors.drag / drivable.weight) * dt;
-            speed = Math.min(Math.max(speed, 0), drivable.maxSpeed);
+            speed = Math.min(Math.max(speed, 0), drivable.isReverse ? drivable.maxReverseSpeed : drivable.maxSpeed);
 
             // change current velocity (both magnitude and heading)
             const L = Math.abs(drivable.frontAxlePosition) + Math.abs(drivable.rearAxlePosition);
             const speedFactor = 1 - Math.pow(speed / drivable.maxSpeed, 2) * drivable.understeerSpeedStrength;
             const angleFactor = 1 - Math.pow(Math.abs(drivable.steeringAngle) / drivable.maxSteeringAngle, 2) * drivable.understeerAngleStrength;
             const effectiveSteering = drivable.steeringAngle * speedFactor * angleFactor * averageWheelFactors.grip;
-            const deltaTheta = (speed * Math.tan(effectiveSteering) / L) * dt;
+            const deltaTheta = (speed * Math.tan(effectiveSteering) / L) * dt * (drivable.isReverse ? -1 : 1);
             drivable.heading = drivable.heading.rotate(deltaTheta)
                 .normalize(); // normalize each frame to prevent floating-point magnitude drift
-            drivable.vel = drivable.heading.scale(speed);
+            drivable.vel = drivable.heading.scale(drivable.isReverse ? -speed : speed);
             drivable.pos = drivable.pos.add(
                 drivable.heading.sub(heading_old).scale(drivable.rearAxlePosition)
             );

@@ -23,6 +23,8 @@ export class VehicleActor extends Actor {
     public frictionForce = 30000;
     // max speed, in px/s
     public maxSpeed: number = 600;
+    public maxReverseSpeed: number = 200;
+    public isReverse: boolean = false;
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force that moves the sprite
     public heading: Vector = vec(1, 0);
