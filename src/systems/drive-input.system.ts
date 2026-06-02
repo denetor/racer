@@ -3,7 +3,7 @@ import {KeybindingsService} from "@/services/keybindings.service";
 import {Keybindings} from "@/enums/keybindings.enum";
 import {DrivableComponent} from "@/components/drivable.component";
 import {VehicleActor} from "@/actors/vehicle.actor";
-import {MathService} from "@/services/math.service";
+import {sumClamp} from "@/services/math.service";
 import {WheelFactor} from "@/models/wheel-factor.model";
 
 export class DriveInputSystem extends System {
@@ -41,13 +41,13 @@ export class DriveInputSystem extends System {
             // change current steering angle
             if (steeringLeft || steeringRight) {
                 const steerDelta = delta * drivable.steeringSpeed / 1000 * (steeringLeft ? -1 : 1);
-                drivable.steeringAngle = MathService.sumClamp(drivable.steeringAngle, steerDelta, - drivable.maxSteeringAngle, drivable.maxSteeringAngle);
+                drivable.steeringAngle = sumClamp(drivable.steeringAngle, steerDelta, - drivable.maxSteeringAngle, drivable.maxSteeringAngle);
             } else if (!steeringLeft && !steeringRight) {
                 const steerDelta = delta * drivable.steeringReturnSpeed / 1000;
                 if (drivable.steeringAngle > 0) {
-                    drivable.steeringAngle = MathService.sumClamp(drivable.steeringAngle, -steerDelta, 0, drivable.maxSteeringAngle);
+                    drivable.steeringAngle = sumClamp(drivable.steeringAngle, -steerDelta, 0, drivable.maxSteeringAngle);
                 } else if (drivable.steeringAngle < 0) {
-                    drivable.steeringAngle = MathService.sumClamp(drivable.steeringAngle, steerDelta, - drivable.maxSteeringAngle, 0);
+                    drivable.steeringAngle = sumClamp(drivable.steeringAngle, steerDelta, - drivable.maxSteeringAngle, 0);
                 }
             }
 

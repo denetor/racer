@@ -7,7 +7,7 @@ import {Resources} from "@/resources";
 import {SurfacesService} from "@/services/surfaces.service";
 import {ObstaclesService} from "@/services/obstacles.service";
 import {GridPositionService} from "@/services/grid-position-service";
-import {MathService} from "@/services/math.service";
+import {getHeadingFromRadians} from "@/services/math.service";
 
 export class PlaygroundScene extends Scene {
 
@@ -36,7 +36,7 @@ export class PlaygroundScene extends Scene {
             player.addTag('player');
             player.addComponent(new DrivableComponent());
             player.pos = vec(playerPosition.x, playerPosition.y);
-            const headingComponents = MathService.getHeadingFromRadians(playerPosition.heading);
+            const headingComponents = getHeadingFromRadians(playerPosition.heading);
             player.heading = vec(headingComponents.x, headingComponents.y);
             player.z = 10;
             this.add(player);
