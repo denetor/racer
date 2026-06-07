@@ -8,12 +8,16 @@ import {SurfacesService} from "@/services/surfaces.service";
 import {ObstaclesService} from "@/services/obstacles.service";
 import {GridPositionService} from "@/services/grid-position-service";
 import {getHeadingFromRadians} from "@/services/math.service";
+import {RaceData} from "@/models/race-data.model";
+import {VehicleRaceData} from "@/models/vehicle-race-data.model";
 
 export class PlaygroundScene extends Scene {
+    raceData: RaceData;
 
 
     constructor() {
         super();
+        this.raceData = new RaceData(5);
     }
 
 
@@ -41,6 +45,10 @@ export class PlaygroundScene extends Scene {
             player.z = 10;
             this.add(player);
         }
+
+        // create race
+        this.raceData = new RaceData(5);
+        this.raceData.addPlayer('Player1', new VehicleRaceData('Player1'));
     }
 
 

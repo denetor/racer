@@ -3,6 +3,9 @@
     "expandedProjectPaths": [
     ],
     "fileStates": {
+        "spritesheet_objects.tsx": {
+            "scaleInDock": 1
+        },
         "spritesheet_tiles.tsx": {
             "scaleInDock": 0.5,
             "scaleInEditor": 1

@@ -32,8 +32,8 @@ export class VehicleActor extends Actor {
     public steeringAngle: number = 0.0;
     public maxSteeringAngle: number = 0.6;
     // speed of change of steering angle, in radians/sec
-    public steeringSpeed: number = 1.8;
-    public steeringReturnSpeed: number = 3.0;
+    public steeringSpeed: number = 2.5;
+    public steeringReturnSpeed: number = 2.5;
     // understeer: reduce steering effectiveness at high speed and high angle (0 = no effect, 1 = full reduction)
     public understeerSpeedStrength: number = 0.3;
     public understeerAngleStrength: number = 0.15;
@@ -263,7 +263,7 @@ export class VehicleActor extends Actor {
 
 
     setEmitters(category: string, enabled: boolean): void {
-        let selectedEmitters: Actor[];
+        let selectedEmitters: Actor[] = [];
         switch (category.toLowerCase()) {
             case 'idle':
                 selectedEmitters = this.idleEmitters;

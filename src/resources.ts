@@ -1,5 +1,6 @@
 import { ImageSource, Loader } from "excalibur";
 import {TiledResource} from "@excaliburjs/plugin-tiled";
+import {CheckpointActor} from "@/actors/checkpoint.actor";
 
 // It is convenient to put your resources in one place
 export const Resources = {
@@ -12,7 +13,7 @@ export const Resources = {
       {
         strict: false,
         entityClassNameFactories: {
-            // surface: SurfaceActor.factory,
+            checkpoint: CheckpointActor.factory,
         },
         // useTilemapCameraStrategy: true,
       }
