@@ -11,6 +11,7 @@ import {getHeadingFromRadians} from "@/services/math.service";
 import {RaceData} from "@/models/race-data.model";
 import {VehicleRaceData} from "@/models/vehicle-race-data.model";
 import {PluginObject} from "@excaliburjs/plugin-tiled";
+import {GridPosition} from "@/models/grid-position.model";
 
 export class PlaygroundScene extends Scene {
     raceData: RaceData;
@@ -35,7 +36,7 @@ export class PlaygroundScene extends Scene {
         this.world.add(CameraFollowPlayerSystem);
 
         // get player position in map
-        const playerPosition = GridPositionService.getPosition(Resources.playgroundMap, 1);
+        const playerPosition = GridPositionService.getPosition(Resources.playgroundMap, 1) || new GridPosition();
 
         // actors
         const player = new VehicleActor();

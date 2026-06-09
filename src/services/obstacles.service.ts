@@ -1,10 +1,10 @@
-import {PluginObject, TilesetResource} from "@excaliburjs/plugin-tiled";
+import {PluginObject, TiledResource} from "@excaliburjs/plugin-tiled";
 import {Actor, CollisionType} from "excalibur";
 
 export class ObstaclesService {
 
 
-    static setObstacles(map: TilesetResource): void {
+    static setObstacles(map: TiledResource): void {
         if (!map) return;
         const obstacleObjects: PluginObject[] = map.getObjectsByClassName('obstacle');
         if (!obstacleObjects) return;
