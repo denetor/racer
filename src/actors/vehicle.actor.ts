@@ -1,10 +1,14 @@
 import {
     Actor,
     Animation,
-    AnimationStrategy, CircleCollider,
+    AnimationStrategy,
+    CircleCollider,
     CollisionType,
-    Color, CompositeCollider, EmitterType,
-    Engine, ParticleEmitter,
+    Color,
+    CompositeCollider,
+    EmitterType,
+    Engine,
+    ParticleEmitter,
     SpriteSheet,
     vec,
     Vector
@@ -45,15 +49,17 @@ export class VehicleActor extends Actor {
     public rearAxleWidth: number = 62;
     public wheelFactors: Map<string, WheelFactor> = new Map();
     // smoke emitters
-    public idleEmitters: Actor[] = [];
-    public throttleEmitters: Actor[] = [];
+    public idleEmitters: ParticleEmitter[] = [];
+    public throttleEmitters: ParticleEmitter[] = [];
     // child actors
+    public laptimeTransponder: Actor = null as any;
     protected leftWheelAxis: Actor = null as any;
     protected rightWheelAxis: Actor = null as any;
     protected frontLeftWheel: Actor = null as any;
     protected frontRightWheel: Actor = null as any;
     protected rearLeftWheel: Actor = null as any;
     protected rearRightWheel: Actor = null as any;
+
 
 
 
@@ -167,6 +173,16 @@ export class VehicleActor extends Actor {
         this.addChild(this.rearLeftWheel);
         this.addChild(this.rearRightWheel);
 
+        // laptime transponder actor
+        this.laptimeTransponder = new Actor({
+            name: 'laptimeTransponder',
+            width: 40,
+            height: 5,
+            pos: vec(0, -55),
+            collisionType: CollisionType.Passive,
+        });
+        this.addChild(this.laptimeTransponder);
+
         // smoke emitters
         const idleEmitter = new ParticleEmitter({
             pos: vec(20, 58),
@@ -225,6 +241,7 @@ export class VehicleActor extends Actor {
         const collider2 = new CircleCollider({radius: 17, offset: vec(-17, 40)});
         const collider3 = new CircleCollider({radius: 17, offset: vec(17, -40)});
         const collider4 = new CircleCollider({radius: 17, offset: vec(17, 40)});
+        // const laptimeTransponderCollider = new LaptimeTransponderCollider({points: [vec(-20, 0), vec(20, 0), vec(0, 20)], offset: vec(58, -0)}, this.playerId);
         const collider = new CompositeCollider([collider1, collider2, collider3, collider4]);
         this.collider.set(collider);
 
@@ -264,7 +281,7 @@ export class VehicleActor extends Actor {
 
 
     setEmitters(category: string, enabled: boolean): void {
-        let selectedEmitters: Actor[] = [];
+        let selectedEmitters: ParticleEmitter[] = [];
         switch (category.toLowerCase()) {
             case 'idle':
                 selectedEmitters = this.idleEmitters;

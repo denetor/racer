@@ -19,9 +19,10 @@ export class CheckpointActor extends Actor {
         this.addTag('checkpoint');
 
         this.on('collisionstart', (ev) => {
-            if (!ev?.other?.owner?.tags?.has('vehicle')) return;
+            if (ev?.other?.owner?.name !== 'laptimeTransponder') return;
+            if (!ev?.other?.owner?.parent) return;
 
-            const vehicle = ev.other.owner as VehicleActor;
+            const vehicle = ev.other.owner.parent as VehicleActor;
             const raceData = (this.scene as PlaygroundScene).raceData;
             const vehicleData = raceData.players.get(vehicle.playerId);
             if (!vehicleData) return;
@@ -30,11 +31,13 @@ export class CheckpointActor extends Actor {
             const timeIntoScene = (this.scene as PlaygroundScene).timeIntoScene;
 
             if (this.name === 'finish-line') {
+                console.log('Finish-line passage');
                 vehicleData.hitFinishLine(timeIntoScene, raceData.totalCheckpoints, raceData.totalLaps);
                 if (vehicleData.completedLaps >= raceData.totalLaps) {
                     raceData.finished = true;
                 }
             } else {
+                console.log('Checkpoint passage');
                 const order = parseInt(this.name.split('-').pop() ?? '0', 10);
                 vehicleData.hitCheckpoint(order, timeIntoScene);
             }
@@ -46,8 +49,8 @@ export class CheckpointActor extends Actor {
         return new CheckpointActor({
             anchor: vec(0, 0),
             pos: vec(props.object.x, props.object.y),
-            width: props.object.width,
-            height: props.object.height,
+            width: (props.object as any)?.width,
+            height: (props.object as any)?.height,
             name: props.name,
         });
     }
