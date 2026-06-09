@@ -40,8 +40,8 @@ export class VehicleActor extends Actor {
     public steeringSpeed: number = 2.5;
     public steeringReturnSpeed: number = 2.5;
     // understeer: reduce steering effectiveness at high speed and high angle (0 = no effect, 1 = full reduction)
-    public understeerSpeedStrength: number = 0.3;
-    public understeerAngleStrength: number = 0.15;
+    public understeerSpeedStrength: number = 0.50;
+    public understeerAngleStrength: number = 0.20;
     // distance, in pixels, from vehicle center to wheel axles
     public frontAxlePosition: number = -33;
     public rearAxlePosition: number = 35;
