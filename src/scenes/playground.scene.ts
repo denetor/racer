@@ -14,6 +14,8 @@ import {PluginObject} from "@excaliburjs/plugin-tiled";
 
 export class PlaygroundScene extends Scene {
     raceData: RaceData;
+    // time past from the scene start
+    timeIntoScene: number = 0;
 
 
     constructor() {
@@ -53,6 +55,14 @@ export class PlaygroundScene extends Scene {
         this.raceData.addPlayer('Player1', new VehicleRaceData('Player1'));
         const checkpointObjects: PluginObject[] = Resources.playgroundMap.getObjectsByClassName('checkpoint');
         this.raceData.totalCheckpoints = checkpointObjects.filter(obj => obj.name !== 'finish-line').length;
+
+        this.timeIntoScene = 0;
+    }
+
+
+    onPostUpdate(engine: Engine, elapsed: number) {
+        super.onPostUpdate(engine, elapsed);
+        this.timeIntoScene += elapsed;
     }
 
 

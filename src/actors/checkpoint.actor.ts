@@ -27,16 +27,16 @@ export class CheckpointActor extends Actor {
             if (!vehicleData) return;
             if (raceData.finished) return;
 
-            const elapsed = this.scene.engine.clock.elapsed;
+            const timeIntoScene = (this.scene as PlaygroundScene).timeIntoScene;
 
             if (this.name === 'finish-line') {
-                vehicleData.hitFinishLine(elapsed, raceData.totalCheckpoints, raceData.totalLaps);
+                vehicleData.hitFinishLine(timeIntoScene, raceData.totalCheckpoints, raceData.totalLaps);
                 if (vehicleData.completedLaps >= raceData.totalLaps) {
                     raceData.finished = true;
                 }
             } else {
                 const order = parseInt(this.name.split('-').pop() ?? '0', 10);
-                vehicleData.hitCheckpoint(order, elapsed);
+                vehicleData.hitCheckpoint(order, timeIntoScene);
             }
         });
     }
