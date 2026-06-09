@@ -1,4 +1,4 @@
-import {Engine, Query, System, SystemPriority, SystemType, World} from "excalibur";
+import {Engine, Keyboard, Query, System, SystemPriority, SystemType, World} from "excalibur";
 import {KeybindingsService} from "@/services/keybindings.service";
 import {Keybindings} from "@/enums/keybindings.enum";
 import {DrivableComponent} from "@/components/drivable.component";
@@ -6,13 +6,19 @@ import {VehicleActor} from "@/actors/vehicle.actor";
 import {sumClamp} from "@/services/math.service";
 import {WheelFactor} from "@/models/wheel-factor.model";
 
+interface InputState {
+    accelerating: boolean;
+    braking: boolean;
+    steeringLeft: boolean;
+    steeringRight: boolean;
+    reversePressed: boolean;
+}
+
 export class DriveInputSystem extends System {
     public priority = SystemPriority.Higher;
     public systemType = SystemType.Update;
     protected query: Query<typeof DrivableComponent>;
     private readonly _engine: Engine;
-
-
 
     constructor(world: World) {
         super();
@@ -20,68 +26,83 @@ export class DriveInputSystem extends System {
         this.query = world.query([DrivableComponent]);
     }
 
-
     public update(delta: number) {
-        const keyboard = this._engine.input.keyboard;
+        if (!this.query?.entities?.length) return;
+        const drivable = this.query.entities[0] as VehicleActor;
+        if (!drivable) return;
 
-        if (this.query && this.query.entities && this.query.entities.length > 0) {
-            const drivable: VehicleActor = this.query.entities[0] as VehicleActor;
-            if (!drivable) return;
-            const heading_old = drivable.heading.clone();
-            const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
+        const input = this.readInput(this._engine.input.keyboard);
 
-            const dt = delta / 1000;
-            let speed = drivable.vel.magnitude;
+        this.handleReverseToggle(drivable, input);
+        this.updateSteeringAngle(drivable, input, delta);
+        this.updateThrottleEffects(drivable, input);
+        const speed = this.computeSpeed(drivable, input, delta);
+        this.applyKinematics(drivable, speed, delta);
+    }
 
-            // detect user input
-            const accelerating = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate));
-            const braking = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake));
-            const steeringLeft = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerLeft));
-            const steeringRight = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerRight));
-            // reverse gear, switchable only when still
-            if (keyboard.wasPressed(KeybindingsService.getKeyFor(Keybindings.EngageReverse)) && speed === 0) {
-                drivable.isReverse =!drivable.isReverse;
-                console.log(`Reverse: ${drivable.isReverse}`);
-            }
+    private readInput(keyboard: Keyboard): InputState {
+        return {
+            accelerating:   keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate)),
+            braking:        keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake)),
+            steeringLeft:   keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerLeft)),
+            steeringRight:  keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerRight)),
+            reversePressed: keyboard.wasPressed(KeybindingsService.getKeyFor(Keybindings.EngageReverse)),
+        };
+    }
 
-            // change current steering angle
-            if (steeringLeft || steeringRight) {
-                const steerDelta = delta * drivable.steeringSpeed / 1000 * (steeringLeft ? -1 : 1);
-                drivable.steeringAngle = sumClamp(drivable.steeringAngle, steerDelta, - drivable.maxSteeringAngle, drivable.maxSteeringAngle);
-            } else if (!steeringLeft && !steeringRight) {
-                const steerDelta = delta * drivable.steeringReturnSpeed / 1000;
-                if (drivable.steeringAngle > 0) {
-                    drivable.steeringAngle = sumClamp(drivable.steeringAngle, -steerDelta, 0, drivable.maxSteeringAngle);
-                } else if (drivable.steeringAngle < 0) {
-                    drivable.steeringAngle = sumClamp(drivable.steeringAngle, steerDelta, - drivable.maxSteeringAngle, 0);
-                }
-            }
-
-            // enable or disable throttle smoke emitter
-            if (accelerating) {
-                drivable.setEmitters('throttle', true);
-            } else {
-                drivable.setEmitters('throttle', false);
-            }
-
-            // change current speed magnitude
-            if (accelerating) speed += (drivable.accelerationForce / drivable.weight) * averageWheelFactors.power * (1 - averageWheelFactors.drag) * dt;
-            if (braking) speed -= ((drivable.brakingForce * averageWheelFactors.grip) / drivable.weight) * dt;
-            if (!accelerating && !braking) speed -= (drivable.frictionForce * 10 * averageWheelFactors.drag / drivable.weight) * dt;
-            speed = Math.min(Math.max(speed, 0), drivable.isReverse ? drivable.maxReverseSpeed : drivable.maxSpeed);
-
-            // change current velocity (both magnitude and heading)
-            const L = Math.abs(drivable.frontAxlePosition) + Math.abs(drivable.rearAxlePosition);
-            const speedFactor = 1 - Math.pow(speed / drivable.maxSpeed, 2) * drivable.understeerSpeedStrength;
-            const angleFactor = 1 - Math.pow(Math.abs(drivable.steeringAngle) / drivable.maxSteeringAngle, 2) * drivable.understeerAngleStrength;
-            const effectiveSteering = drivable.steeringAngle * speedFactor * angleFactor * averageWheelFactors.grip;
-            const deltaTheta = (speed * Math.tan(effectiveSteering) / L) * dt * (drivable.isReverse ? -1 : 1);
-            drivable.heading = drivable.heading.rotate(deltaTheta)
-                .normalize(); // normalize each frame to prevent floating-point magnitude drift
-            drivable.vel = drivable.heading.scale(drivable.isReverse ? -speed : speed);
-            drivable.pos = drivable.pos.add(
-                drivable.heading.sub(heading_old).scale(drivable.rearAxlePosition)
-            );
+    private handleReverseToggle(drivable: VehicleActor, input: InputState) {
+        if (input.reversePressed && drivable.vel.magnitude === 0) {
+            drivable.isReverse = !drivable.isReverse;
+            console.log(`Reverse: ${drivable.isReverse}`);
         }
+    }
+
+    private updateSteeringAngle(drivable: VehicleActor, input: InputState, delta: number) {
+        if (input.steeringLeft || input.steeringRight) {
+            const steerDelta = delta * drivable.steeringSpeed / 1000 * (input.steeringLeft ? -1 : 1);
+            drivable.steeringAngle = sumClamp(drivable.steeringAngle, steerDelta, -drivable.maxSteeringAngle, drivable.maxSteeringAngle);
+        } else {
+            const steerDelta = delta * drivable.steeringReturnSpeed / 1000;
+            if (drivable.steeringAngle > 0) {
+                drivable.steeringAngle = sumClamp(drivable.steeringAngle, -steerDelta, 0, drivable.maxSteeringAngle);
+            } else if (drivable.steeringAngle < 0) {
+                drivable.steeringAngle = sumClamp(drivable.steeringAngle, steerDelta, -drivable.maxSteeringAngle, 0);
+            }
+        }
+    }
+
+    private updateThrottleEffects(drivable: VehicleActor, input: InputState) {
+        drivable.setEmitters('throttle', input.accelerating);
+    }
+
+    private computeSpeed(drivable: VehicleActor, input: InputState, delta: number): number {
+        const dt = delta / 1000;
+        const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
+        let speed = drivable.vel.magnitude;
+
+        if (input.accelerating) speed += (drivable.accelerationForce / drivable.weight) * averageWheelFactors.power * (1 - averageWheelFactors.drag) * dt;
+        if (input.braking) speed -= ((drivable.brakingForce * averageWheelFactors.grip) / drivable.weight) * dt;
+        if (!input.accelerating && !input.braking) speed -= (drivable.frictionForce * 10 * averageWheelFactors.drag / drivable.weight) * dt;
+
+        return Math.min(Math.max(speed, 0), drivable.isReverse ? drivable.maxReverseSpeed : drivable.maxSpeed);
+    }
+
+    private applyKinematics(drivable: VehicleActor, speed: number, delta: number) {
+        const dt = delta / 1000;
+        const heading_old = drivable.heading.clone();
+        const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
+
+        const L = Math.abs(drivable.frontAxlePosition) + Math.abs(drivable.rearAxlePosition);
+        const speedFactor = 1 - Math.pow(speed / drivable.maxSpeed, 2) * drivable.understeerSpeedStrength;
+        const angleFactor = 1 - Math.pow(Math.abs(drivable.steeringAngle) / drivable.maxSteeringAngle, 2) * drivable.understeerAngleStrength;
+        const effectiveSteering = drivable.steeringAngle * speedFactor * angleFactor * averageWheelFactors.grip;
+        const deltaTheta = (speed * Math.tan(effectiveSteering) / L) * dt * (drivable.isReverse ? -1 : 1);
+
+        drivable.heading = drivable.heading.rotate(deltaTheta)
+            .normalize(); // normalize each frame to prevent floating-point magnitude drift
+        drivable.vel = drivable.heading.scale(drivable.isReverse ? -speed : speed);
+        drivable.pos = drivable.pos.add(
+            drivable.heading.sub(heading_old).scale(drivable.rearAxlePosition)
+        );
     }
 }
