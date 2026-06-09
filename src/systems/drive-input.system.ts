@@ -3,7 +3,7 @@ import {KeybindingsService} from "@/services/keybindings.service";
 import {Keybindings} from "@/enums/keybindings.enum";
 import {DrivableComponent} from "@/components/drivable.component";
 import {VehicleActor} from "@/actors/vehicle.actor";
-import {sumClamp} from "@/services/math.service";
+import {computeGripFactors, moveToward, smoothPedal, sumClamp} from "@/services/math.service";
 import {WheelFactor} from "@/models/wheel-factor.model";
 
 interface InputState {
@@ -35,8 +35,10 @@ export class DriveInputSystem extends System {
 
         this.handleReverseToggle(drivable, input);
         this.updateSteeringAngle(drivable, input, delta);
+        this.updatePedalInputs(drivable, input, delta);
+        this.updateWeightTransfer(drivable, delta);
         this.updateThrottleEffects(drivable, input);
-        const speed = this.computeSpeed(drivable, input, delta);
+        const speed = this.computeSpeed(drivable, delta);
         this.applyKinematics(drivable, speed, delta);
     }
 
@@ -71,18 +73,30 @@ export class DriveInputSystem extends System {
         }
     }
 
+    private updatePedalInputs(drivable: VehicleActor, input: InputState, delta: number) {
+        const dt = delta / 1000;
+        drivable.throttleInput = smoothPedal(drivable.throttleInput, input.accelerating, drivable.throttlePressRate, drivable.throttleReleaseRate, dt);
+        drivable.brakeInput = smoothPedal(drivable.brakeInput, input.braking, drivable.brakePressRate, drivable.brakeReleaseRate, dt);
+    }
+
+    private updateWeightTransfer(drivable: VehicleActor, delta: number) {
+        const dt = delta / 1000;
+        const target = Math.min(Math.max(drivable.throttleInput - drivable.brakeInput, -1), 1);
+        drivable.weightTransfer = moveToward(drivable.weightTransfer, target, drivable.weightTransferRate * dt);
+    }
+
     private updateThrottleEffects(drivable: VehicleActor, input: InputState) {
         drivable.setEmitters('throttle', input.accelerating);
     }
 
-    private computeSpeed(drivable: VehicleActor, input: InputState, delta: number): number {
+    private computeSpeed(drivable: VehicleActor, delta: number): number {
         const dt = delta / 1000;
         const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
         let speed = drivable.vel.magnitude;
 
-        if (input.accelerating) speed += (drivable.accelerationForce / drivable.weight) * averageWheelFactors.power * (1 - averageWheelFactors.drag) * dt;
-        if (input.braking) speed -= ((drivable.brakingForce * averageWheelFactors.grip) / drivable.weight) * dt;
-        if (!input.accelerating && !input.braking) speed -= (drivable.frictionForce * 10 * averageWheelFactors.drag / drivable.weight) * dt;
+        speed += (drivable.accelerationForce / drivable.weight) * drivable.throttleInput * averageWheelFactors.power * (1 - averageWheelFactors.drag) * dt;
+        speed -= ((drivable.brakingForce * averageWheelFactors.grip) / drivable.weight) * drivable.brakeInput * dt;
+        if (drivable.throttleInput === 0 && drivable.brakeInput === 0) speed -= (drivable.frictionForce * 10 * averageWheelFactors.drag / drivable.weight) * dt;
 
         return Math.min(Math.max(speed, 0), drivable.isReverse ? drivable.maxReverseSpeed : drivable.maxSpeed);
     }
@@ -90,17 +104,28 @@ export class DriveInputSystem extends System {
     private applyKinematics(drivable: VehicleActor, speed: number, delta: number) {
         const dt = delta / 1000;
         const heading_old = drivable.heading.clone();
-        const averageWheelFactors: WheelFactor = drivable.getAverageWheelFactors();
+        const surfaceGrip: number = drivable.getAverageWheelFactors().grip;
+
+        const speedDampening = 1 - Math.pow(speed / drivable.maxSpeed, 2);
+        const { frontGrip, rearGrip } = computeGripFactors(
+            drivable.weightTransfer,
+            speedDampening,
+            drivable.weightTransferStrength,
+            drivable.frontGripCap
+        );
 
         const L = Math.abs(drivable.frontAxlePosition) + Math.abs(drivable.rearAxlePosition);
-        const speedFactor = 1 - Math.pow(speed / drivable.maxSpeed, 2) * drivable.understeerSpeedStrength;
         const angleFactor = 1 - Math.pow(Math.abs(drivable.steeringAngle) / drivable.maxSteeringAngle, 2) * drivable.understeerAngleStrength;
-        const effectiveSteering = drivable.steeringAngle * speedFactor * angleFactor * averageWheelFactors.grip;
+        const effectiveSteering = drivable.steeringAngle * angleFactor * surfaceGrip * frontGrip;
         const deltaTheta = (speed * Math.tan(effectiveSteering) / L) * dt * (drivable.isReverse ? -1 : 1);
 
         drivable.heading = drivable.heading.rotate(deltaTheta)
             .normalize(); // normalize each frame to prevent floating-point magnitude drift
-        drivable.vel = drivable.heading.scale(drivable.isReverse ? -speed : speed);
+
+        const lerpFactor = drivable.baseLerpFactor * rearGrip * surfaceGrip;
+        const targetVel = drivable.heading.scale(drivable.isReverse ? -speed : speed);
+        drivable.vel = drivable.vel.lerp(targetVel, lerpFactor);
+
         drivable.pos = drivable.pos.add(
             drivable.heading.sub(heading_old).scale(drivable.rearAxlePosition)
         );

@@ -39,9 +39,22 @@ export class VehicleActor extends Actor {
     // speed of change of steering angle, in radians/sec
     public steeringSpeed: number = 2.5;
     public steeringReturnSpeed: number = 2.5;
-    // understeer: reduce steering effectiveness at high speed and high angle (0 = no effect, 1 = full reduction)
-    public understeerSpeedStrength: number = 0.50;
+    // understeer: reduce steering effectiveness at high angle (0 = no effect, 1 = full reduction)
     public understeerAngleStrength: number = 0.20;
+    // smoothed pedal inputs [0, 1]
+    public throttleInput: number = 0;
+    public brakeInput: number = 0;
+    // press/release rates for each pedal (units per second)
+    public throttlePressRate: number = 2.0;
+    public throttleReleaseRate: number = 4.0;
+    public brakePressRate: number = 2.0;
+    public brakeReleaseRate: number = 4.0;
+    // weight transfer simulation
+    public weightTransfer: number = 0;
+    public weightTransferRate: number = 3.0;
+    public weightTransferStrength: number = 0.4;
+    public frontGripCap: number = 1.5;
+    public baseLerpFactor: number = 0.5;
     // distance, in pixels, from vehicle center to wheel axles
     public frontAxlePosition: number = -33;
     public rearAxlePosition: number = 35;
