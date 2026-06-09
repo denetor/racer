@@ -13,8 +13,4 @@ export class LapTime {
         this.checkpointTimes = new Map();
     }
 
-    // TODO hit checkpoint method
-    // add checkpoint time to checkpoints
-    // if checkpoint name is "finish-line", and all checkpoints are touched, set laptime
-
 }

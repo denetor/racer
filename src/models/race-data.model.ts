@@ -2,6 +2,7 @@ import {VehicleRaceData} from "@/models/vehicle-race-data.model";
 
 export class RaceData {
     totalLaps: number;
+    totalCheckpoints: number;
     players: Map<string, VehicleRaceData>;
     started: boolean;
     finished: boolean;
@@ -9,6 +10,7 @@ export class RaceData {
 
     constructor(totalLaps: number) {
         this.totalLaps = totalLaps;
+        this.totalCheckpoints = 0;
         this.players = new Map();
         this.started = false;
         this.finished = false;

@@ -1,5 +1,7 @@
 import {Actor, ActorArgs, CollisionType, Engine, vec} from "excalibur";
 import {FactoryProps} from "@excaliburjs/plugin-tiled";
+import {VehicleActor} from "@/actors/vehicle.actor";
+import {PlaygroundScene} from "@/scenes/playground.scene";
 
 export class CheckpointActor extends Actor {
 
@@ -17,8 +19,24 @@ export class CheckpointActor extends Actor {
         this.addTag('checkpoint');
 
         this.on('collisionstart', (ev) => {
-            if (ev?.other?.owner?.tags?.size > 0 && ev.other.owner.tags.has('vehicle')) {
-                console.log('Collision CheckpointActor-Vehicle');
+            if (!ev?.other?.owner?.tags?.has('vehicle')) return;
+
+            const vehicle = ev.other.owner as VehicleActor;
+            const raceData = (this.scene as PlaygroundScene).raceData;
+            const vehicleData = raceData.players.get(vehicle.playerId);
+            if (!vehicleData) return;
+            if (raceData.finished) return;
+
+            const elapsed = this.scene.engine.clock.elapsed;
+
+            if (this.name === 'finish-line') {
+                vehicleData.hitFinishLine(elapsed, raceData.totalCheckpoints, raceData.totalLaps);
+                if (vehicleData.completedLaps >= raceData.totalLaps) {
+                    raceData.finished = true;
+                }
+            } else {
+                const order = parseInt(this.name.split('-').pop() ?? '0', 10);
+                vehicleData.hitCheckpoint(order, elapsed);
             }
         });
     }

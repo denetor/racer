@@ -10,6 +10,7 @@ import {GridPositionService} from "@/services/grid-position-service";
 import {getHeadingFromRadians} from "@/services/math.service";
 import {RaceData} from "@/models/race-data.model";
 import {VehicleRaceData} from "@/models/vehicle-race-data.model";
+import {PluginObject} from "@excaliburjs/plugin-tiled";
 
 export class PlaygroundScene extends Scene {
     raceData: RaceData;
@@ -43,12 +44,15 @@ export class PlaygroundScene extends Scene {
             const headingComponents = getHeadingFromRadians(playerPosition.heading);
             player.heading = vec(headingComponents.x, headingComponents.y);
             player.z = 10;
+            player.playerId = 'Player1';
             this.add(player);
         }
 
         // create race
         this.raceData = new RaceData(5);
         this.raceData.addPlayer('Player1', new VehicleRaceData('Player1'));
+        const checkpointObjects: PluginObject[] = Resources.playgroundMap.getObjectsByClassName('checkpoint');
+        this.raceData.totalCheckpoints = checkpointObjects.filter(obj => obj.name !== 'finish-line').length;
     }
 
 
