@@ -53,7 +53,7 @@ export class DriveInputSystem extends System {
     }
 
     private handleReverseToggle(drivable: VehicleActor, input: InputState) {
-        if (input.reversePressed && drivable.vel.magnitude === 0) {
+        if (input.reversePressed && drivable.vel.magnitude < 1) {
             drivable.isReverse = !drivable.isReverse;
             console.log(`Reverse: ${drivable.isReverse}`);
         }
