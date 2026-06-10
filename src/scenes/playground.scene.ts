@@ -12,11 +12,13 @@ import {RaceData} from "@/models/race-data.model";
 import {VehicleRaceData} from "@/models/vehicle-race-data.model";
 import {PluginObject} from "@excaliburjs/plugin-tiled";
 import {GridPosition} from "@/models/grid-position.model";
+import {DrivingDashboardActor} from "@/ui/driving-dashboard.actor";
 
 export class PlaygroundScene extends Scene {
     raceData: RaceData;
     // time past from the scene start
     timeIntoScene: number = 0;
+    dashboard: DrivingDashboardActor;
 
 
     constructor() {
@@ -50,6 +52,11 @@ export class PlaygroundScene extends Scene {
             player.playerId = 'Player1';
             this.add(player);
         }
+
+        // UI: dashboard
+        // TODO test with both canvasWidth and drawWidth
+        this.dashboard = new DrivingDashboardActor(engine.screen.width);
+        this.add(this.dashboard);
 
         // create race
         this.raceData = new RaceData(5);
