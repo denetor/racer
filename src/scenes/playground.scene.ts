@@ -18,7 +18,7 @@ export class PlaygroundScene extends Scene {
     raceData: RaceData;
     // time past from the scene start
     timeIntoScene: number = 0;
-    dashboard: DrivingDashboardActor = null as any;
+    dashboard!: DrivingDashboardActor;
 
 
     constructor() {
@@ -58,6 +58,7 @@ export class PlaygroundScene extends Scene {
         // drawWidth and width are identical and have camera zoom applied
         this.dashboard = new DrivingDashboardActor(engine.screen.width);
         this.add(this.dashboard);
+        this.dashboard.setVehicle(player);
 
         // create race
         this.raceData = new RaceData(5);
