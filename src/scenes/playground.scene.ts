@@ -18,7 +18,7 @@ export class PlaygroundScene extends Scene {
     raceData: RaceData;
     // time past from the scene start
     timeIntoScene: number = 0;
-    dashboard: DrivingDashboardActor;
+    dashboard: DrivingDashboardActor = null as any;
 
 
     constructor() {
@@ -54,7 +54,8 @@ export class PlaygroundScene extends Scene {
         }
 
         // UI: dashboard
-        // TODO test with both canvasWidth and drawWidth
+        // note: canvasWidth is the physical resolution of the canvas, before applying camera zoom etc... It's nt to be used at this high level.
+        // drawWidth and width are identical and have camera zoom applied
         this.dashboard = new DrivingDashboardActor(engine.screen.width);
         this.add(this.dashboard);
 
