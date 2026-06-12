@@ -1,11 +1,13 @@
 import {Color, Engine, ScreenElement} from "excalibur";
 import {VehicleActor} from "@/actors/vehicle.actor";
 import {PedalsAppletActor} from "@/ui/pedals-applet.actor";
+import {AccelerationAppletActor} from "@/ui/acceleration-applet.actor";
 
 export class DrivingDashboardActor extends ScreenElement {
     static readonly HEIGHT = 64;
     private vehicle: VehicleActor | null = null;
     private pedalsApplet!: PedalsAppletActor;
+    private accelerationApplet!: AccelerationAppletActor;
 
     constructor(width: number) {
         super({
@@ -22,8 +24,11 @@ export class DrivingDashboardActor extends ScreenElement {
         super.onInitialize(engine);
         this.pedalsApplet = new PedalsAppletActor();
         this.addChild(this.pedalsApplet);
+        this.accelerationApplet = new AccelerationAppletActor();
+        this.addChild(this.accelerationApplet);
         if (this.vehicle) {
             this.pedalsApplet.setVehicle(this.vehicle);
+            this.accelerationApplet.setVehicle(this.vehicle);
         }
     }
 
@@ -31,6 +36,9 @@ export class DrivingDashboardActor extends ScreenElement {
         this.vehicle = vehicle;
         if (this?.pedalsApplet) {
             this.pedalsApplet.setVehicle(vehicle);
+        }
+        if (this?.accelerationApplet) {
+            this.accelerationApplet.setVehicle(vehicle);
         }
     }
 }
