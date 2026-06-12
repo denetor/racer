@@ -19,7 +19,6 @@ export class DrivingDashboardActor extends ScreenElement {
     }
 
     onInitialize(engine: Engine): void {
-        console.log('Dashboard.onInitialize()');
         super.onInitialize(engine);
         this.pedalsApplet = new PedalsAppletActor();
         this.addChild(this.pedalsApplet);
@@ -29,7 +28,6 @@ export class DrivingDashboardActor extends ScreenElement {
     }
 
     setVehicle(vehicle: VehicleActor): void {
-        console.log('Dashboard.setVehicle()');
         this.vehicle = vehicle;
         if (this?.pedalsApplet) {
             this.pedalsApplet.setVehicle(vehicle);

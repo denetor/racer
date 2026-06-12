@@ -20,11 +20,11 @@ export class VehicleActor extends Actor {
     // vehicle weight, in kg
     public weight: number = 1000.0;
     // vehicle acceleration force, think this as engine power
-    public accelerationForce = 300000;
+    public accelerationForce = 500000;
     // vehicle braking force, think this as braking power
-    public brakingForce = 800000;
+    public brakingForce = 1600000;
     // vehicle friction
-    public frictionForce = 30000;
+    public frictionForce = 80000;
     // max speed, in px/s
     public maxSpeed: number = 600;
     public maxReverseSpeed: number = 200;
@@ -35,7 +35,7 @@ export class VehicleActor extends Actor {
     public heading: Vector = vec(1, 0);
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
     public steeringAngle: number = 0.0;
-    public maxSteeringAngle: number = 0.6;
+    public maxSteeringAngle: number = 0.4;
     // speed of change of steering angle, in radians/sec
     public steeringSpeed: number = 2.5;
     public steeringReturnSpeed: number = 2.5;
@@ -45,13 +45,13 @@ export class VehicleActor extends Actor {
     public throttleInput: number = 0;
     public brakeInput: number = 0;
     // press/release rates for each pedal (units per second)
-    public throttlePressRate: number = 2.0;
-    public throttleReleaseRate: number = 4.0;
-    public brakePressRate: number = 2.0;
-    public brakeReleaseRate: number = 4.0;
+    public throttlePressRate: number = 5.0;
+    public throttleReleaseRate: number = 5.0;
+    public brakePressRate: number = 5.0;
+    public brakeReleaseRate: number = 5.0;
     // weight transfer simulation
     public weightTransfer: number = 0;
-    public weightTransferRate: number = 3.0;
+    public weightTransferRate: number = 6.0;
     public weightTransferStrength: number = 0.4;
     public frontGripCap: number = 1.5;
     public baseLerpFactor: number = 0.5;
