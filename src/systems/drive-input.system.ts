@@ -3,7 +3,7 @@ import {KeybindingsService} from "@/services/keybindings.service";
 import {Keybindings} from "@/enums/keybindings.enum";
 import {DrivableComponent} from "@/components/drivable.component";
 import {VehicleActor} from "@/actors/vehicle.actor";
-import {computeGripFactors, computeLongitudinalAcceleration, moveToward, smoothPedal, sumClamp} from "@/services/math.service";
+import {computeGripFactors, computeLongitudinalAcceleration, computeLongitudinalLoad, smoothPedal, sumClamp} from "@/services/math.service";
 import {WheelFactor} from "@/models/wheel-factor.model";
 
 interface InputState {
@@ -36,7 +36,6 @@ export class DriveInputSystem extends System {
         this.handleReverseToggle(drivable, input);
         this.updateSteeringAngle(drivable, input, delta);
         this.updatePedalInputs(drivable, input, delta);
-        this.updateWeightTransfer(drivable, delta);
         this.updateThrottleEffects(drivable, input);
         const speed = this.computeSpeed(drivable, delta);
         this.updateAcceleration(drivable, speed, delta);
@@ -80,12 +79,6 @@ export class DriveInputSystem extends System {
         drivable.brakeInput = smoothPedal(drivable.brakeInput, input.braking, drivable.brakePressRate, drivable.brakeReleaseRate, dt);
     }
 
-    private updateWeightTransfer(drivable: VehicleActor, delta: number) {
-        const dt = delta / 1000;
-        const target = Math.min(Math.max(drivable.throttleInput - drivable.brakeInput, -1), 1);
-        drivable.weightTransfer = moveToward(drivable.weightTransfer, target, drivable.weightTransferRate * dt);
-    }
-
     private updateThrottleEffects(drivable: VehicleActor, input: InputState) {
         drivable.setEmitters('throttle', input.accelerating);
     }
@@ -115,10 +108,11 @@ export class DriveInputSystem extends System {
         const surfaceGrip: number = drivable.getAverageWheelFactors().grip;
 
         const speedDampening = 1 - Math.pow(speed / drivable.maxSpeed, 2);
+        const longitudinalLoad = computeLongitudinalLoad(drivable.acceleration.y, drivable.accelerationFullScale);
         const { frontGrip, rearGrip } = computeGripFactors(
-            drivable.weightTransfer,
+            longitudinalLoad,
             speedDampening,
-            drivable.weightTransferStrength,
+            drivable.loadTransferStrength,
             drivable.frontGripCap
         );
 

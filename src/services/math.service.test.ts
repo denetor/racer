@@ -1,4 +1,4 @@
-import {computeGripFactors, computeLongitudinalAcceleration, moveToward, smoothPedal, sumClamp} from './math.service';
+import {computeGripFactors, computeLongitudinalAcceleration, computeLongitudinalLoad, moveToward, smoothPedal, sumClamp} from './math.service';
 
 describe('sumClamp', () => {
     it('clamps the sum to min', () => {
@@ -43,7 +43,7 @@ describe('smoothPedal', () => {
 
 describe('moveToward', () => {
     it('advances toward positive target by maxDelta', () => {
-        // weightTransferRate=3.0, dt=0.1s → step=0.3
+        // maxDelta=0.3 → advances by 0.3
         expect(moveToward(0, 1, 0.3)).toBeCloseTo(0.3);
     });
 
@@ -61,7 +61,7 @@ describe('moveToward', () => {
 });
 
 describe('computeGripFactors', () => {
-    it('returns neutral grip when weightTransfer is zero', () => {
+    it('returns neutral grip when longitudinalLoad is zero', () => {
         const { frontGrip, rearGrip } = computeGripFactors(0, 1.0, 0.4, 1.5);
         expect(frontGrip).toBe(1.0);
         expect(rearGrip).toBe(1.0);
@@ -95,6 +95,34 @@ describe('computeGripFactors', () => {
         const { frontGrip, rearGrip } = computeGripFactors(-1.0, 0.5, 0.4, 1.5);
         expect(frontGrip).toBeCloseTo(1.2); // 1 - (-0.5 * 0.4) = 1.2
         expect(rearGrip).toBeCloseTo(0.8);  // 1 + (-0.5 * 0.4) = 0.8
+    });
+});
+
+describe('computeLongitudinalLoad', () => {
+    it('returns zero load at zero acceleration', () => {
+        expect(computeLongitudinalLoad(0, 800)).toBe(0);
+    });
+
+    it('returns a positive load when speeding up', () => {
+        // 400 / 800 = 0.5
+        expect(computeLongitudinalLoad(400, 800)).toBeCloseTo(0.5);
+    });
+
+    it('returns a negative load when braking/decelerating', () => {
+        // -400 / 800 = -0.5
+        expect(computeLongitudinalLoad(-400, 800)).toBeCloseTo(-0.5);
+    });
+
+    it('clamps to +1 when acceleration exceeds the full scale', () => {
+        expect(computeLongitudinalLoad(1600, 800)).toBe(1);
+    });
+
+    it('clamps to -1 when deceleration exceeds the full scale', () => {
+        expect(computeLongitudinalLoad(-1600, 800)).toBe(-1);
+    });
+
+    it('reaches exactly +1 at full scale', () => {
+        expect(computeLongitudinalLoad(800, 800)).toBe(1);
     });
 });
 

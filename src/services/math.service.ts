@@ -16,15 +16,30 @@ export function moveToward(current: number, target: number, maxDelta: number): n
 }
 
 export function computeGripFactors(
-    weightTransfer: number,
+    longitudinalLoad: number,
     speedDampening: number,
     strength: number,
     frontGripCap: number
 ): { frontGrip: number; rearGrip: number } {
-    const effectiveWT = weightTransfer * speedDampening;
-    const frontGrip = Math.min(Math.max(1 - effectiveWT * strength, 0), frontGripCap);
-    const rearGrip = Math.min(Math.max(1 + effectiveWT * strength, 0), 1);
+    const effectiveLoad = longitudinalLoad * speedDampening;
+    const frontGrip = Math.min(Math.max(1 - effectiveLoad * strength, 0), frontGripCap);
+    const rearGrip = Math.min(Math.max(1 + effectiveLoad * strength, 0), 1);
     return { frontGrip, rearGrip };
+}
+
+/**
+ * Normalizes a longitudinal acceleration (px/s²) into a load factor in [-1, 1].
+ *
+ * Positive when the vehicle is speeding up (load shifts rearward), negative when braking
+ * (load shifts forward). The magnitude is scaled by fullScale and clamped, so accelerations
+ * beyond the full-scale reference saturate at ±1.
+ *
+ * @param accelY    longitudinal acceleration in px/s² (signed; negative under braking/reverse)
+ * @param fullScale acceleration (px/s²) mapped to a load of ±1
+ * @return load factor in [-1, 1]
+ */
+export function computeLongitudinalLoad(accelY: number, fullScale: number): number {
+    return Math.min(Math.max(accelY / fullScale, -1), 1);
 }
 
 /**

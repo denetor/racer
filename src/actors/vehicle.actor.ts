@@ -53,10 +53,10 @@ export class VehicleActor extends Actor {
     public throttleReleaseRate: number = 5.0;
     public brakePressRate: number = 5.0;
     public brakeReleaseRate: number = 5.0;
-    // weight transfer simulation
-    public weightTransfer: number = 0;
-    public weightTransferRate: number = 0.50;
-    public weightTransferStrength: number = 0.4;
+    // longitudinal load: how strongly acceleration.y shifts grip front/rear, and the
+    // acceleration (px/s²) mapped to a full ±1 load
+    public loadTransferStrength: number = 0.4;
+    public accelerationFullScale: number = 800;
     public frontGripCap: number = 1.5;
     public baseLerpFactor: number = 0.5;
     // distance, in pixels, from vehicle center to wheel axles
