@@ -5,9 +5,24 @@ import {PEDALS_MARGIN} from "@/ui/pedals-applet.actor";
 
 const ACCELERATION_DOT_RADIUS = 6;
 const ACCELERATION_BOUNDARY_RADIUS_MARGIN = 4;
+// full-scale acceleration (px/s²) that maps the dot to the boundary edge; symmetric on both axes
+export const ACCEL_FULL_SCALE = 800;
 
-export function calcDotOffset(weightTransfer: number, boundaryRadius: number): { x: number, y: number } {
-    return {x: 0, y: (-weightTransfer * boundaryRadius) || 0};
+/**
+ * Maps an acceleration vector (px/s²) to a dot offset inside the circular dial.
+ * Normalizes by ACCEL_FULL_SCALE, clamps the vector magnitude to the boundary radius
+ * (so the dot stays on/inside the circle along the true direction), and negates y so
+ * that speeding up (positive y) moves the dot up. Positive x moves the dot right.
+ */
+export function calcDotOffset(acceleration: { x: number, y: number }, boundaryRadius: number): { x: number, y: number } {
+    let nx = acceleration.x / ACCEL_FULL_SCALE;
+    let ny = acceleration.y / ACCEL_FULL_SCALE;
+    const mag = Math.hypot(nx, ny);
+    if (mag > 1) {
+        nx /= mag;
+        ny /= mag;
+    }
+    return {x: (nx * boundaryRadius) || 0, y: (-ny * boundaryRadius) || 0};
 }
 
 export class AccelerationAppletActor extends ScreenElement {
@@ -43,7 +58,7 @@ export class AccelerationAppletActor extends ScreenElement {
     }
 
     private renderIndicator(ctx: CanvasRenderingContext2D): void {
-        const weightTransfer = this.vehicle?.weightTransfer ?? 0;
+        const acceleration = this.vehicle?.acceleration ?? {x: 0, y: 0};
         const size = this.appletSize;
         const cx = size / 2;
         const cy = size / 2;
@@ -56,7 +71,7 @@ export class AccelerationAppletActor extends ScreenElement {
         ctx.arc(cx, cy, this.boundaryRadius, 0, Math.PI * 2);
         ctx.stroke();
 
-        const offset = calcDotOffset(weightTransfer, this.boundaryRadius);
+        const offset = calcDotOffset(acceleration, this.boundaryRadius);
         ctx.fillStyle = 'rgba(255, 255, 0, 1)';
         ctx.beginPath();
         ctx.arc(cx + offset.x, cy + offset.y, ACCELERATION_DOT_RADIUS, 0, Math.PI * 2);

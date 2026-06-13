@@ -12,7 +12,7 @@ jest.mock('excalibur', () => ({
 
 jest.mock('@/actors/vehicle.actor', () => ({
     VehicleActor: class {
-        weightTransfer = 0;
+        acceleration = {x: 0, y: 0};
     },
 }));
 
@@ -29,20 +29,37 @@ import {calcDotOffset, AccelerationAppletActor} from './acceleration-applet.acto
 const APPLET_SIZE = 64 - 8 * 2;
 
 describe('calcDotOffset', () => {
-    it('returns zero offset at neutral', () => {
-        expect(calcDotOffset(0, 20)).toEqual({x: 0, y: 0});
+    // ACCEL_FULL_SCALE is 800 px/s²
+
+    it('returns zero offset at zero acceleration', () => {
+        expect(calcDotOffset({x: 0, y: 0}, 20)).toEqual({x: 0, y: 0});
     });
 
-    it('moves dot up (negative y) at full positive weightTransfer', () => {
-        expect(calcDotOffset(1, 20)).toEqual({x: 0, y: -20});
+    it('moves dot up (negative y) when speeding up at full-scale', () => {
+        expect(calcDotOffset({x: 0, y: 800}, 20)).toEqual({x: 0, y: -20});
     });
 
-    it('moves dot down (positive y) at full negative weightTransfer', () => {
-        expect(calcDotOffset(-1, 20)).toEqual({x: 0, y: 20});
+    it('moves dot down (positive y) when braking at full-scale', () => {
+        expect(calcDotOffset({x: 0, y: -800}, 20)).toEqual({x: 0, y: 20});
+    });
+
+    it('moves dot right at positive lateral acceleration', () => {
+        expect(calcDotOffset({x: 800, y: 0}, 20)).toEqual({x: 20, y: 0});
     });
 
     it('scales proportionally at intermediate values', () => {
-        expect(calcDotOffset(0.5, 20)).toEqual({x: 0, y: -10});
+        expect(calcDotOffset({x: 0, y: 400}, 20)).toEqual({x: 0, y: -10});
+    });
+
+    it('clamps over-range longitudinal acceleration to the radius', () => {
+        expect(calcDotOffset({x: 0, y: 1600}, 20)).toEqual({x: 0, y: -20});
+    });
+
+    it('clamps combined over-range to the boundary circle (magnitude = radius)', () => {
+        const offset = calcDotOffset({x: 800, y: 800}, 20);
+        expect(Math.hypot(offset.x, offset.y)).toBeCloseTo(20);
+        expect(offset.x).toBeCloseTo(20 / Math.SQRT2);
+        expect(offset.y).toBeCloseTo(-20 / Math.SQRT2);
     });
 });
 

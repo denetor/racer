@@ -1,152 +1,148 @@
-# Grill-me — Add `acceleration` Vector + `previousSpeed` to `VehicleActor`
+# Grill-me — Drive `AccelerationAppletActor` from `VehicleActor.acceleration`
 
-Goal: give `VehicleActor` an `acceleration: Vector` whose `y` is the current
-**longitudinal** acceleration and whose `x` is the **lateral** acceleration
-(kept at `0` for now). The longitudinal value is derived from the change in
-speed between frames, which requires a new `previousSpeed: number` field.
+Goal: make the G-meter applet plot `VehicleActor.acceleration` instead of
+`weightTransfer`, and define a full-scale strategy since the new value (px/s²)
+can exceed the instrument's size.
 
-Context discovered during the interview: `AccelerationAppletActor`
-(`src/ui/acceleration-applet.actor.ts`) currently renders its G‑meter dot from
-`vehicle.weightTransfer`. This new `acceleration` vector is the eventual real
-data source for that applet, which frames the sign/units decisions below.
+Grounding numbers (from `VehicleActor` dynamics):
+- full throttle longitudinal accel ≈ `accelerationForce/weight` = **~+500 px/s²**
+- full braking ≈ `brakingForce/weight` = **~-1600 px/s²** (grip-scaled)
+- coasting friction ≈ **~-800 px/s²**
 
----
-
-## Question 1: Where should `acceleration.y` be computed and assigned each frame?
-
-Options weighed: inside `computeSpeed()`, a new dedicated method, or in
-`VehicleActor.onPostUpdate()`.
-
-### Decision
-
-A **new private method `updateAcceleration()`** in `DriveInputSystem`, called
-from `update()` after `computeSpeed()` returns the new speed. This keeps
-`computeSpeed()` pure (it just returns a number) and isolates the
-acceleration / `previousSpeed` bookkeeping in one place.
+So the longitudinal value is strongly asymmetric and routinely larger than any
+fixed display window — hence the full-scale / clamping decisions below.
 
 ---
 
-## Question 2: What does `acceleration.y` hold — true acceleration (px/s²) or raw Δspeed (px/s)?
+## Question 1: Which axes should the applet plot from `acceleration`?
 
 ### Decision
 
-**True acceleration in px/s²**: `acceleration.y = ΔsignedSpeed / dt`. This is
-physically correct and frame‑rate independent. The magnitude can be large
-(hundreds–thousands), so any consumer (e.g. the G‑meter applet) is responsible
-for normalizing it for display.
+**Both x and y — a true 2D G-meter.** `acceleration.x` → horizontal dot
+offset, `acceleration.y` → vertical. `x` is `0` today so the dot only moves
+vertically for now, but the applet is built as a 2D meter and needs no rework
+when lateral acceleration ships.
 
 ---
 
-## Question 3: How is the reverse sign applied (the prompt's "× -1 in reverse")?
+## Question 2: How is the full-scale (fondo scala) reference determined?
 
 ### Decision
 
-**Store `previousSpeed` as a positive magnitude; sign both endpoints at use.**
-
-```
-signedNow  = isReverse ? -speed         :  speed;
-signedPrev = isReverse ? -previousSpeed :  previousSpeed;
-accY       = (signedNow - signedPrev) / dt;
-previousSpeed = speed;   // store positive magnitude
-```
-
-This matches the prompt literally ("`previousSpeed` va moltiplicata per -1
-quando è ingranata la retromarcia"). `speed` coming out of `computeSpeed()` is
-always a positive number, so both the current and previous speeds are signed
-by the current `isReverse` state.
-
-Note (edge case): reverse can only be toggled when `vel.magnitude < 1`
-(`handleReverseToggle`), so `speed` is ≈0 at the moment `isReverse` flips. Any
-sign-flip spike in `accY` on that frame is negligible. Accepted, not guarded.
+**A fixed display constant** in the applet (e.g. `ACCEL_FULL_SCALE`, in px/s²).
+Predictable, decoupled from physics internals. Values beyond it are clamped
+(see Q5). Not derived from vehicle params, not dynamically auto-scaled.
 
 ---
 
-## Question 4: Sign orientation — is speeding up positive or negative `y`?
+## Question 3: Single symmetric full-scale, or split (given throttle vs brake asymmetry)?
 
 ### Decision
 
-**Speeding up = positive `y`** (forward acceleration → `acc.y > 0`,
-braking/decel → `acc.y < 0`). Standard math convention. The applet already
-negates its longitudinal input when drawing (today: `y = -weightTransfer *
-boundaryRadius`), so it will negate `acceleration.y` the same way — no special
-screen-space convention baked into the physics value.
+**Single symmetric value**, applied to both axes and both signs. Honest
+G-meter: equal screen distance = equal acceleration. Throttle naturally moves
+the dot less than braking, which is physically truthful. Simplest to reason
+about and tune.
 
 ---
 
-## Question 5: Which speed value feeds the Δ, and what is stored into `previousSpeed`?
-
-`updateAcceleration()` runs after `computeSpeed()` but `applyKinematics()` then
-lerps `vel` toward `heading * speed`, so `vel.magnitude ≠ speed`.
+## Question 4: What numeric value should the full-scale constant start at?
 
 ### Decision
 
-**Use the `computeSpeed()` scalar.** Compare this frame's commanded `speed`
-against `previousSpeed`, then store `previousSpeed = speed`. This is a clean
-scalar‑to‑scalar comparison that reflects the dynamics model's intended speed,
-and does not mix lateral grip / lerp lag into the longitudinal acceleration.
+**~800 px/s²** (tunable later). Throttle (~500) reaches ~0.6 of the radius;
+hard braking (toward ~1600) saturates and clamps at the edge. Gives good dot
+travel for throttle while accepting that heavy braking pegs the dial.
 
 ---
 
-## Question 6: How to handle `dt ≈ 0` (paused / first tick) so `Δspeed / dt` doesn't blow up?
+## Question 5: How is the dot constrained when acceleration exceeds full-scale?
 
 ### Decision
 
-**Guard it.** If `dt <= 0` (or below a tiny epsilon), set `acceleration.y = 0`
-for that frame and still update `previousSpeed`. Prevents `Infinity`/`NaN` from
-leaking into the vector or any consumer.
+**Clamp the vector magnitude to the boundary radius.** Normalize `(x, y)` by
+full-scale; if the resulting magnitude > 1, scale it back to 1 so the dot stays
+on/inside the circular boundary while moving along the true acceleration
+direction. (Not per-component clamping, which would let the dot reach the square
+corners outside the drawn circle.)
 
 ---
 
-## Question 7: How is the `acceleration` Vector written each frame (x stays 0)?
+## Question 6: Visual cue when the dot is pinned (over-range)?
 
 ### Decision
 
-**Mutate `.y`, leave `.x`**: `drivable.acceleration.y = accY` (and on the dt
-guard, `= 0`). `x` is initialized to `0` and never touched while the lateral
-component is ignored. Avoids allocating a new `Vector` every frame and
-preserves the reference for any holder.
+**No cue — just pin at the edge.** The dot sits on the boundary when
+over-range, same styling as always. Simplest; matches the current yellow dot.
+Can revisit if distinguishing "at edge" vs "beyond edge" becomes useful.
+
+---
+
+## Question 7: Smoothing — should the applet smooth the displayed dot?
+
+### Decision
+
+**Display raw.** Plot `acceleration` directly each frame (it is no longer
+pre-smoothed the way `weightTransfer` was via `moveToward`). Most truthful and
+responsive. If the dot looks noisy in practice, add a low-pass later as an
+applet-local concern.
+
+---
+
+## Question 8: New signature for `calcDotOffset` (the pure, tested unit)?
+
+### Decision
+
+**`calcDotOffset(acceleration: {x, y}, boundaryRadius: number) => {x, y}`**,
+reading the module-level `ACCEL_FULL_SCALE` constant internally. The function:
+normalizes by full-scale, clamps the vector magnitude to 1 (Q5), and returns the
+canvas offset with **y negated** (speeding up → dot up, matching today's
+`-weightTransfer * radius` convention; `x` positive → dot right). Existing
+`calcDotOffset` tests are rewritten for the new contract.
+
+---
+
+## Question 9: Scope of "remove the old weightTransfer references"?
+
+### Decision
+
+**Applet only.** Remove `weightTransfer` from `acceleration-applet.actor.ts`
+and its test mock. `VehicleActor.weightTransfer` and the `DriveInputSystem` →
+`computeGripFactors` handling model stay untouched — they still drive
+understeer/oversteer. Only the G-meter switches its data source to
+`acceleration`.
 
 ---
 
 ## Implementation summary
 
-### `VehicleActor` (`src/actors/vehicle.actor.ts`) — new fields
+### `acceleration-applet.actor.ts`
 
-```ts
-// current acceleration: y = longitudinal (px/s²), x = lateral (px/s², 0 for now)
-public acceleration: Vector = vec(0, 0);
-// speed magnitude from the previous frame (always positive; signed at use)
-public previousSpeed: number = 0;
-```
+- Add module constant `ACCEL_FULL_SCALE = 800` (px/s²).
+- `calcDotOffset(acceleration: {x, y}, boundaryRadius)`:
+  - `nx = acceleration.x / ACCEL_FULL_SCALE`, `ny = acceleration.y / ACCEL_FULL_SCALE`
+  - `mag = Math.hypot(nx, ny)`; if `mag > 1`, divide `nx, ny` by `mag`
+  - return `{ x: nx * boundaryRadius, y: -ny * boundaryRadius }`
+- `renderIndicator`: read `this.vehicle?.acceleration ?? {x: 0, y: 0}` and pass
+  it to `calcDotOffset`; remove the `weightTransfer` read. Dot styling unchanged.
 
-### `DriveInputSystem` (`src/systems/drive-input.system.ts`)
+### `acceleration-applet.actor.test.ts`
 
-In `update()`, after `const speed = this.computeSpeed(drivable, delta);`:
+- Update the `VehicleActor` mock to expose `acceleration = {x: 0, y: 0}` instead
+  of `weightTransfer`.
+- Rewrite the `calcDotOffset` tests for the new contract:
+  - zero acceleration → `{x: 0, y: 0}`
+  - positive y (speeding up) at full-scale → dot up (`y = -boundaryRadius`)
+  - negative y (braking) at full-scale → dot down (`y = +boundaryRadius`)
+  - intermediate value scales proportionally
+  - over-range magnitude (e.g. y = 2 × full-scale) → clamped to the radius
+  - combined x+y over-range → magnitude clamped to the radius (stays in circle)
+  - positive x → dot right
 
-```ts
-this.updateAcceleration(drivable, speed, delta);
-this.applyKinematics(drivable, speed, delta);
-```
+### Out of scope
 
-New method:
-
-```ts
-private updateAcceleration(drivable: VehicleActor, speed: number, delta: number) {
-    const dt = delta / 1000;
-    if (dt <= 0) {
-        drivable.acceleration.y = 0;
-        drivable.previousSpeed = speed;
-        return;
-    }
-    const signedNow  = drivable.isReverse ? -speed                 :  speed;
-    const signedPrev = drivable.isReverse ? -drivable.previousSpeed :  drivable.previousSpeed;
-    drivable.acceleration.y = (signedNow - signedPrev) / dt; // x stays 0
-    drivable.previousSpeed = speed; // positive magnitude
-}
-```
-
-### Out of scope (this change)
-
-- Lateral acceleration (`acceleration.x`) stays `0`.
-- Rewiring `AccelerationAppletActor` to read `acceleration` instead of
-  `weightTransfer` (separate step in this issue).
+- Removing `weightTransfer` from `VehicleActor` / `DriveInputSystem` (physics
+  keeps it).
+- Lateral acceleration source (`acceleration.x` stays 0 upstream); the applet is
+  merely ready for it.
+- Any display smoothing / saturation color cue.
