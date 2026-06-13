@@ -33,6 +33,10 @@ export class VehicleActor extends Actor {
     // heading is where the vehicle is pointing. It can differ from velocity (Actor.vel)
     // that is the actual force that moves the sprite
     public heading: Vector = vec(1, 0);
+    // current acceleration: y = longitudinal (px/s²), x = lateral (px/s², 0 for now)
+    public acceleration: Vector = vec(0, 0);
+    // commanded speed magnitude from the previous frame (always positive; signed at use)
+    public previousSpeed: number = 0;
     // current steering angle, in radians. 0 = no steering, negative = left, positive = right
     public steeringAngle: number = 0.0;
     public maxSteeringAngle: number = 0.4;
@@ -51,7 +55,7 @@ export class VehicleActor extends Actor {
     public brakeReleaseRate: number = 5.0;
     // weight transfer simulation
     public weightTransfer: number = 0;
-    public weightTransferRate: number = 6.0;
+    public weightTransferRate: number = 0.50;
     public weightTransferStrength: number = 0.4;
     public frontGripCap: number = 1.5;
     public baseLerpFactor: number = 0.5;

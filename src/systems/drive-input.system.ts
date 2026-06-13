@@ -3,7 +3,7 @@ import {KeybindingsService} from "@/services/keybindings.service";
 import {Keybindings} from "@/enums/keybindings.enum";
 import {DrivableComponent} from "@/components/drivable.component";
 import {VehicleActor} from "@/actors/vehicle.actor";
-import {computeGripFactors, moveToward, smoothPedal, sumClamp} from "@/services/math.service";
+import {computeGripFactors, computeLongitudinalAcceleration, moveToward, smoothPedal, sumClamp} from "@/services/math.service";
 import {WheelFactor} from "@/models/wheel-factor.model";
 
 interface InputState {
@@ -39,6 +39,7 @@ export class DriveInputSystem extends System {
         this.updateWeightTransfer(drivable, delta);
         this.updateThrottleEffects(drivable, input);
         const speed = this.computeSpeed(drivable, delta);
+        this.updateAcceleration(drivable, speed, delta);
         this.applyKinematics(drivable, speed, delta);
     }
 
@@ -99,6 +100,13 @@ export class DriveInputSystem extends System {
         if (drivable.throttleInput === 0 && drivable.brakeInput === 0) speed -= (drivable.frictionForce * 10 * averageWheelFactors.drag / drivable.weight) * dt;
 
         return Math.min(Math.max(speed, 0), drivable.isReverse ? drivable.maxReverseSpeed : drivable.maxSpeed);
+    }
+
+    private updateAcceleration(drivable: VehicleActor, speed: number, delta: number) {
+        const dt = delta / 1000;
+        // longitudinal only; lateral (x) is left at its 0 init for now
+        drivable.acceleration.y = computeLongitudinalAcceleration(speed, drivable.previousSpeed, drivable.isReverse, dt);
+        drivable.previousSpeed = speed;
     }
 
     private applyKinematics(drivable: VehicleActor, speed: number, delta: number) {

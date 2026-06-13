@@ -1,4 +1,4 @@
-import {computeGripFactors, moveToward, smoothPedal, sumClamp} from './math.service';
+import {computeGripFactors, computeLongitudinalAcceleration, moveToward, smoothPedal, sumClamp} from './math.service';
 
 describe('sumClamp', () => {
     it('clamps the sum to min', () => {
@@ -95,5 +95,48 @@ describe('computeGripFactors', () => {
         const { frontGrip, rearGrip } = computeGripFactors(-1.0, 0.5, 0.4, 1.5);
         expect(frontGrip).toBeCloseTo(1.2); // 1 - (-0.5 * 0.4) = 1.2
         expect(rearGrip).toBeCloseTo(0.8);  // 1 + (-0.5 * 0.4) = 0.8
+    });
+});
+
+describe('computeLongitudinalAcceleration', () => {
+    it('returns positive acceleration when speeding up forward', () => {
+        // (110 - 100) / 0.1 = 100
+        expect(computeLongitudinalAcceleration(110, 100, false, 0.1)).toBeCloseTo(100);
+    });
+
+    it('returns negative acceleration when decelerating forward', () => {
+        // (90 - 100) / 0.1 = -100
+        expect(computeLongitudinalAcceleration(90, 100, false, 0.1)).toBeCloseTo(-100);
+    });
+
+    it('returns zero at steady speed', () => {
+        expect(computeLongitudinalAcceleration(100, 100, false, 0.1)).toBe(0);
+    });
+
+    it('returns negative acceleration when gaining speed in reverse', () => {
+        // signedNow=-110, signedPrev=-100 → (-110 - -100)/0.1 = -100
+        expect(computeLongitudinalAcceleration(110, 100, true, 0.1)).toBeCloseTo(-100);
+    });
+
+    it('returns positive acceleration when lifting off in reverse', () => {
+        // signedNow=-90, signedPrev=-100 → (-90 - -100)/0.1 = 100
+        expect(computeLongitudinalAcceleration(90, 100, true, 0.1)).toBeCloseTo(100);
+    });
+
+    it('returns 0 when dt is zero (forward)', () => {
+        expect(computeLongitudinalAcceleration(110, 100, false, 0)).toBe(0);
+    });
+
+    it('returns 0 when dt is zero (reverse)', () => {
+        expect(computeLongitudinalAcceleration(110, 100, true, 0)).toBe(0);
+    });
+
+    it('returns 0 when dt is negative', () => {
+        expect(computeLongitudinalAcceleration(110, 100, false, -0.1)).toBe(0);
+    });
+
+    it('is frame-rate independent: same delta over a larger dt yields a smaller result', () => {
+        // same Δspeed of 10, dt doubled → result halved
+        expect(computeLongitudinalAcceleration(110, 100, false, 0.2)).toBeCloseTo(50);
     });
 });

@@ -27,6 +27,26 @@ export function computeGripFactors(
     return { frontGrip, rearGrip };
 }
 
+/**
+ * Computes the longitudinal acceleration (px/s²) from the change in speed between frames.
+ *
+ * Speed is reported as a positive magnitude, so both the current and previous speed are
+ * signed by the reverse state before the delta is taken: positive when speeding up forward,
+ * negative when braking/decelerating. Guards against a zero/negative timestep by returning 0.
+ *
+ * @param speed         current commanded speed magnitude (always >= 0)
+ * @param previousSpeed previous frame's commanded speed magnitude (always >= 0)
+ * @param isReverse     whether reverse gear is engaged
+ * @param dt            timestep in seconds
+ * @return longitudinal acceleration in px/s² (0 when dt <= 0)
+ */
+export function computeLongitudinalAcceleration(speed: number, previousSpeed: number, isReverse: boolean, dt: number): number {
+    if (dt <= 0) return 0;
+    const signedNow = isReverse ? -speed : speed;
+    const signedPrev = isReverse ? -previousSpeed : previousSpeed;
+    return (signedNow - signedPrev) / dt;
+}
+
 export function getHeadingFromRadians(radians: number): { x: number; y: number } {
     return {
         x: Math.sin(radians),
