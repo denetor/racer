@@ -434,11 +434,26 @@ imbardata è quasi impossibile da debuggare se è già completa quando appare il
   modello è stabile.
 - **Scala e unità.** Derivare `pxPerMeter` dall'altezza sprite (121 px) e da `lengthMeters`;
   convertire una volta sola in SI le costanti px esistenti (`maxSpeed`, posizioni/larghezze assi).
-- **Convenzione assi.** Adottare il sistema corpo **x = avanti, y = laterale**: l'attuale
-  `acceleration` (dove `y` è il longitudinale) non si riusa così com'è.
+- **Convenzione assi.** Adottare il sistema corpo **x = avanti, y = laterale** per *tutta la
+  matematica fisica* (standard veicolistico, equazioni 3.7): l'attuale `acceleration` (dove `y` è il
+  longitudinale) non si riusa così com'è. Questa è una scelta **interna alla fisica**, indipendente
+  dall'orientamento dell'arte dello sprite.
+- **Orientamento dello sprite: si lascia il muso in alto.** Lo sprite attuale è disegnato col muso
+  verso l'alto (sourceView 70×121, verticale), quindi nel **frame locale dell'actor** l'avanti è
+  `−y` e il laterale è `+x`. Questo **non** richiede di ruotare lo spritesheet: l'orientamento
+  dell'arte è già disaccoppiato dalla fisica da **due soli punti documentati**:
+  1. l'offset `+ π/2` in `rotateToHeading()` (porta lo sprite muso-su a puntare lungo `heading`, che
+     è già in convenzione mondo `x`=destra);
+  2. una funzione pura di conversione **locale → corpo** nel `vehicle-physics.service`, usata una
+     volta sola per i bracci `r_i`: `x_body = −y_local`, `y_body = x_local`.
+  Ruotare lo spritesheet a muso-destra azzererebbe l'offset (1) ma obbligherebbe a riposizionare
+  tutti gli attori-figli (ruote/assi/emitter/collider, oggi nel frame muso-su), rompendo la base
+  visiva condivisa col vecchio `VehicleActor` — per **zero benefici fisici**. Si tiene quindi il
+  muso in alto e si confina il quirk nei due punti sopra.
 - **Anchor al centro.** Mantenere l'`anchor` di default di ExcaliburJS (centro dello sprite, che è
   anche il centro di rotazione): assi e ruote sono già posizionati rispetto ad esso, quindi
-  `cogPosition` e bracci `r_i` non richiedono riallineamenti tra fisica e rendering.
+  `cogPosition` e bracci `r_i` non richiedono riallineamenti di *origine* tra fisica e rendering (la
+  rotazione di 90° tra frame locale e frame corpo resta gestita dalla conversione pura di cui sopra).
 - **Parametrizzazione.** Separare nettamente le **costanti generiche** (ρ aria, `g`, soglie del
   blend a bassa velocità, ...) in un file condiviso (es. `physics.constants.ts`) dalle **costanti
   per-veicolo** (`mass`, attriti, `maxSteeringAngle`, `drivetrain`/`driveBias`, `lengthMeters`,

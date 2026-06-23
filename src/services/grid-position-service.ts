@@ -10,7 +10,7 @@ export class GridPositionService {
             position: 1,
             x: positionObjects[0].x,
             y: positionObjects[0].y,
-            heading: positionObjects[0]?.tiledObject['heading'],
+            heading: (positionObjects[0]?.tiledObject as any)?.['heading'],
         });
 
         return pos;
