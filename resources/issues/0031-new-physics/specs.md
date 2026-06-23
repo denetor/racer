@@ -84,7 +84,8 @@ quindi un input reale della simulazione, non un dettaglio da mediare via.
 
 - **`WheelFactor`** (`models/wheel-factor.model.ts`) — `drag`, `grip`, `power` per ruota.
 - **`DrivableComponent`** (`components/drivable.component.ts`) — componente marcatore (vuoto) per
-  la query del sistema.
+  la query del sistema. Oggi marca «auto pilotata dal giocatore»: il nuovo flusso lo riusa come
+  marker di controllo umano, lasciando spazio a un futuro `AiControlledComponent` per gli avversari.
 
 ### Cosa si riusa / cosa si sostituisce
 
@@ -96,8 +97,25 @@ quindi un input reale della simulazione, non un dettaglio da mediare via.
 | Tracciamento superficie per ruota via `collisionstart` (`wheelFactors`, chiavi ruota) | Media dei fattori ruota (`getAverageWheelFactors`) e `understeerAngleStrength` |
 | Pattern di query con `DrivableComponent` | `powerFactor` nel calcolo della spinta (la superficie darà solo `gripFactor`) |
 
-> Le due nuove classi target sono **`PhysicVehicleActor`** e **`PhysicDriveInputSystem`**, con la
-> fisica pura raccolta in un service dedicato (estensione di `math.service` o nuovo
+> Le classi target sono **`PhysicVehicleActor`** più **due system distinti** e un **component-contratto**:
+>
+> - **`PhysicDriveInputSystem`** — solo *acquisizione input*: traduce la tastiera (via
+>   `KeybindingsService`) in un *intento di guida* normalizzato e nient'altro. Niente fisica, niente
+>   smoothing. Query sul marker di controllo umano (`DrivableComponent`).
+> - **`PhysicDriveUpdateSystem`** — *applicazione della fisica*: legge l'intento e fa tutto il resto
+>   (smoothing pedali/sterzo, pipeline a forze, integrazione, hook di rendering). Non sa *chi* ha
+>   prodotto l'intento: query su `[DriverInputComponent]` (ogni auto guidata ne ha uno).
+> - **`DriverInputComponent`** (`components/driver-input.component.ts`) — data-bag con i *target*
+>   del pilota: `throttleTarget` ∈ [0,1], `brakeTarget` ∈ [0,1], `steerTarget` ∈ [−1,1] e una
+>   richiesta di toggle retromarcia. È l'unico punto di contatto tra i due system.
+>
+> Questa separazione **prepara la strada agli avversari pilotati dal computer**: un futuro
+> `AiDriveInputSystem` (query su un `AiControlledComponent`) scrive lo *stesso* `DriverInputComponent`,
+> e `PhysicDriveUpdateSystem` resta identico. Lo smoothing (rampa pedali/sterzo) vive nell'update
+> system, non nell'input: così anche l'AI eredita le stesse dinamiche di attuazione e l'input resta un
+> puro traduttore di comandi.
+>
+> La fisica pura resta raccolta in un service dedicato (estensione di `math.service` o nuovo
 > `vehicle-physics.service`).
 
 ---
@@ -227,8 +245,10 @@ Da qui ogni ruota ha il **suo** slip angle (per le anteriori si sottrae lo sterz
    ```
    Poi riconverti `v` in coordinate mondo e aggiorna `pos`.
 
-> **Mappatura sul codice.** Questa pipeline sostituisce interamente `applyKinematics` +
-> `computeSpeed` + `updateAcceleration` del `DriveInputSystem`. Attenzione alla convenzione assi:
+> **Mappatura sul codice.** Questa pipeline vive nel nuovo `PhysicDriveUpdateSystem` e sostituisce
+> interamente `applyKinematics` + `computeSpeed` + `updateAcceleration` dell'attuale `DriveInputSystem`
+> (le cui responsabilità si dividono tra `PhysicDriveInputSystem`, per l'acquisizione, e
+> `PhysicDriveUpdateSystem`, per la fisica). Attenzione alla convenzione assi:
 > qui il sistema corpo è **x = avanti, y = laterale**, mentre l'attuale `VehicleActor.acceleration`
 > tiene il longitudinale su `y`. Il `PhysicVehicleActor` deve adottare la convenzione corpo per
 > evitare ambiguità. La scrittura finale di `pos`/`vel` (in px) resta l'unico punto di contatto col
@@ -294,13 +314,22 @@ ruote ci sono quattro `atan2` instabili invece di due, quindi va previsto **dal 
 - [ ] Statistiche metriche: velocità reale, distanza percorsa, spazi di frenata
 
 ### Architettura e stato
-- [ ] Nuove classi `PhysicVehicleActor` + `PhysicDriveInputSystem` (affiancano gli attuali
-  `VehicleActor`/`DriveInputSystem`, non li toccano finché non si fa lo switch nella scena)
+- [ ] Nuove classi `PhysicVehicleActor` + **due system separati** `PhysicDriveInputSystem`
+  (acquisizione input) e `PhysicDriveUpdateSystem` (applicazione fisica), che affiancano gli attuali
+  `VehicleActor`/`DriveInputSystem` senza toccarli finché non si fa lo switch nella scena
+- [ ] Nuovo `DriverInputComponent` come *contratto-intento* tra i due system: `throttleTarget`,
+  `brakeTarget`, `steerTarget`, richiesta toggle retromarcia. L'input system scrive, l'update system
+  legge — così un futuro `AiDriveInputSystem` riusa l'update senza modifiche (avversari computer)
+- [ ] Marker di controllo distinti: `DrivableComponent` = pilota umano (riuso), `AiControlledComponent`
+  = avversario computer (futuro). Ogni input system interroga il proprio marker; l'update system
+  interroga `[DriverInputComponent]`, indifferente a chi l'ha riempito
 - [ ] Riuso di: smussamento pedali (`smoothPedal`, `throttleInput`/`brakeInput`), rampa sterzo
   (`updateSteeringAngle`, `sumClamp`), attori-figli ruote, rotazione sprite (`rotateToHeading`,
-  `onPostUpdate`)
+  `onPostUpdate`) — collocati nel `PhysicDriveUpdateSystem`, così l'AI eredita le stesse dinamiche di
+  attuazione (l'input resta un puro traduttore di comandi)
 - [ ] Funzioni fisiche pure in un service (`math.service` o nuovo `vehicle-physics.service`); stato
-  sull'actor; orchestrazione nel system; query via `DrivableComponent`
+  sull'actor; orchestrazione split su input/update system; query via `DrivableComponent` (input) e
+  `DriverInputComponent` (update)
 - [ ] Stato a corpo rigido planare: `vel` (vettore mondo), `heading`, `yawRate` indipendente
 - [ ] Modello a **4 ruote** indipendenti, con le chiavi ruota esistenti
   (`frontLeftWheel`/`frontRightWheel`/`rearLeftWheel`/`rearRightWheel`)
@@ -390,12 +419,19 @@ imbardata è quasi impossibile da debuggare se è già completa quando appare il
 ## 6. Note operative per l'intervento sulla codebase
 
 - Mantenere il pattern attuale: **parametri e stato** su `PhysicVehicleActor`, **funzioni pure**
-  nel service (testabili a tavolino — con una fisica così è oro), **orchestrazione** in
-  `PhysicDriveInputSystem`.
+  nel service (testabili a tavolino — con una fisica così è oro), **orchestrazione** divisa tra i due
+  system. `PhysicDriveInputSystem` fa solo *input → `DriverInputComponent`*; `PhysicDriveUpdateSystem`
+  fa *`DriverInputComponent` → fisica → stato/rendering*.
+- **Separare input e fisica (apre la strada all'AI).** Lo split in due system non è cosmetico: il
+  `DriverInputComponent` è il contratto che permette di scambiare il pilota (umano ↔ computer) senza
+  toccare la fisica. Un futuro `AiDriveInputSystem` produce lo stesso intento e `PhysicDriveUpdateSystem`
+  non cambia. Tenere l'update system *agnostico rispetto alla sorgente dell'intento* (deve poter girare
+  anche su auto senza tastiera).
 - **Affiancare, non sostituire in-place.** Le nuove classi convivono con `VehicleActor`/
-  `DriveInputSystem`; lo switch avviene in `PlaygroundScene` (registra il nuovo system e istanzia
-  il nuovo actor) quando il modello è stabile. Riusare `DrivableComponent` per la query, così il
-  nuovo sistema si aggancia come quello esistente.
+  `DriveInputSystem`; lo switch avviene in `PlaygroundScene` (registra i **due** nuovi system —
+  `PhysicDriveInputSystem` a priorità più alta dell'update, così l'intento del frame è pronto prima
+  della fisica — e istanzia il nuovo actor con `DrivableComponent` + `DriverInputComponent`) quando il
+  modello è stabile.
 - **Scala e unità.** Derivare `pxPerMeter` dall'altezza sprite (121 px) e da `lengthMeters`;
   convertire una volta sola in SI le costanti px esistenti (`maxSpeed`, posizioni/larghezze assi).
 - **Convenzione assi.** Adottare il sistema corpo **x = avanti, y = laterale**: l'attuale
@@ -437,6 +473,7 @@ imbardata è quasi impossibile da debuggare se è già completa quando appare il
 | `brakingForce` | frenata distribuita a 4 ruote, bias anteriore |
 | `frontAxlePosition`/`rearAxlePosition`/`frontAxleWidth`/`rearAxleWidth` (px) | `cogPosition` + bracci `r_i` (m), passo `L`, carreggiate |
 | `steeringAngle`/`maxSteeringAngle` | `δ` per le anteriori — riuso |
-| `smoothPedal`, `updateSteeringAngle`, `sumClamp`, `rotateToHeading`, `onPostUpdate` | riuso diretto |
+| `readInput` / `handleReverseToggle` (in `DriveInputSystem`) | `PhysicDriveInputSystem`: tastiera → `DriverInputComponent` (target normalizzati) |
+| `smoothPedal`, `updateSteeringAngle`, `sumClamp`, `rotateToHeading`, `onPostUpdate` | riuso diretto, ma dentro `PhysicDriveUpdateSystem` (smoothing = attuazione, condiviso umano/AI) |
 | `SurfaceActor.powerFactor`/`dragFactor` | solo `gripFactor` (drag → `Crr` globale) |
 | `WheelFactor.power`/`drag` | rimossi; aggiunti `gripSurface`/`wear`/`load`/`slipAngle`/flag |
