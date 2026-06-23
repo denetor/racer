@@ -35,4 +35,7 @@ Considera anche la struttura attuale del software
 /implement-plan `Phase 1: Estrazione base a comportamento invariato` at @resources/issues/0031-new-physics/step00/prd-plan.md
 ```
 
+```md
+/implement-plan `Phase 2: Tracer bullet — guida in avanti end-to-end` at @resources/issues/0031-new-physics/step00/prd-plan.md
+```
 

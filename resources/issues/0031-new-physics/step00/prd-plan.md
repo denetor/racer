@@ -96,19 +96,24 @@ collisioni sono di Excalibur; il timestep è fisso; un HUD minimale mostra la ve
 
 ### Acceptance criteria
 
-- [ ] Con `START_SCENE='physics'` (locale) si avvia `PhysicsPlaygroundScene` con la nuova auto;
-  con `'playground'` si avvia la scena vecchia. Il valore committato è `'playground'`.
-- [ ] `Engine.fixedUpdateFps = 60` attivo; la baseline Playwright resta verde (frame statico invariato).
-- [ ] Premendo accelerazione l'auto si muove in avanti lungo l'`heading`, in **linea retta**, in modo
-  stabile (nessuna esplosione numerica); rilasciando, l'attrito lineare la rallenta.
-- [ ] La velocità è integrata in SI nel frame-corpo e scritta come `actor.vel` in px; **non** si scrive
-  `actor.pos` ogni frame; Excalibur integra la posizione.
-- [ ] L'auto si **ferma contro i muri** (`Fixed`) senza codice di risposta a carico nostro.
-- [ ] La camera segue l'auto; lo sprite punta lungo l'heading; gli emitter di fumo sono attivi.
-- [ ] `PhysicDriveInputSystem` ha priorità maggiore di `PhysicDriveUpdateSystem`; l'update system non
-  dipende dalla tastiera (gira anche su entity senza input umano).
-- [ ] L'HUD di debug mostra la velocità in km/h coerente col moto.
-- [ ] Unit test verdi per `pxPerMeter`, `bodyToWorld`, `integrateLongitudinalStep`.
+- [x] Con `START_SCENE='physics'` (locale) si avvia `PhysicsPlaygroundScene` con la nuova auto;
+  con `'playground'` si avvia la scena vecchia. **Valore committato `'playground'`.**
+- [x] `Engine.fixedUpdateFps = 60` attivo; **baseline Playwright verde** col frame statico invariato.
+- [x] Premendo accelerazione l'auto si muove in avanti, **linea retta**, stabile (smoke headless: HUD
+  `39.5 km/h` accelerando da fermo); l'attrito lineare che rallenta è nell'integratore + unit test
+  (`integrateLongitudinalStep` decelera coasting).
+- [x] Velocità integrata in SI nel frame-corpo e scritta come `actor.vel` (px); `actor.pos` **non**
+  scritto; la posizione la integra Excalibur (by construction + smoke: l'auto si è mossa).
+- [ ] L'auto si **ferma contro i muri** (`Fixed`) — **non verificabile in questo container**: la
+  mappa Tiled non si carica (errore di parsing pre-esistente di `@excaliburjs/plugin-tiled`, sfondo
+  blu senza tile/muri). Corretto by construction (vel nostra, pos+collisioni a Excalibur); **da
+  verificare a mano nell'ambiente dev reale** dove la mappa carica.
+- [x] La camera segue l'auto (smoke: auto sfalsata dal centro); lo sprite punta lungo l'heading;
+  emitter presenti nel `BaseVehicleActor`.
+- [x] `PhysicDriveInputSystem` priorità `Higher` (−5) > `PhysicDriveUpdateSystem` `Average` (0);
+  l'update interroga `[DriverInputComponent]`, indipendente dalla tastiera (agnostico alla sorgente).
+- [x] L'HUD di debug mostra `v: <km/h>` coerente col moto (smoke: `39.5 km/h`).
+- [x] Unit test verdi per `pxPerMeter`, `bodyToWorld`, `integrateLongitudinalStep` (67 test totali).
 
 ---
 

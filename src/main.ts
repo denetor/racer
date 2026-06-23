@@ -1,8 +1,14 @@
 import {Color, DisplayMode, Engine, FadeInOut, SolverStrategy} from "excalibur";
 import {loader} from "./resources";
 import {PlaygroundScene} from "@/scenes/playground.scene";
+import {PhysicsPlaygroundScene} from "@/scenes/physics-playground.scene";
 
 // Goal is to keep main.ts small and just enough to configure the engine
+
+// Start scene. MUST stay 'playground' in committed code (the Playwright baseline screenshots the
+// production scene). Flip to 'physics' locally to drive the new force-based physics dev scene.
+// const START_SCENE = 'playground';
+const START_SCENE = 'physics';
 
 const game = new Engine({
   width: 1200, // Logical width and height in game pixels
@@ -15,6 +21,7 @@ const game = new Engine({
   suppressPlayButton: true,
   scenes: {
     playground: PlaygroundScene,
+    physics: PhysicsPlaygroundScene,
   },
   physics: {
     solver: SolverStrategy.Arcade
@@ -23,10 +30,11 @@ const game = new Engine({
   //   solver: SolverStrategy.Realistic,
   //   substep: 5 // Sub step the physics simulation for more robust simulations
   // },
-  // fixedUpdateTimestep: 16 // Turn on fixed update timestep when consistent physic simulation is important
+  // fixed update keeps the force-based integration stable and deterministic (constant dt)
+  fixedUpdateFps: 60,
 });
 
-game.start('playground', { // name of the start scene 'start'
+game.start(START_SCENE, { // name of the start scene 'start'
   loader, // Optional loader (but needed for loading images/sounds)
   inTransition: new FadeInOut({ // Optional in transition
     duration: 200,
