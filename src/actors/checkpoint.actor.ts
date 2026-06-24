@@ -24,6 +24,7 @@ export class CheckpointActor extends Actor {
 
             const vehicle = ev.other.owner.parent as VehicleActor;
             const raceData = (this.scene as PlaygroundScene).raceData;
+            if (!raceData) return;
             const vehicleData = raceData.players.get(vehicle.playerId);
             if (!vehicleData) return;
             if (raceData.finished) return;
