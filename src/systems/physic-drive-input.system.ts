@@ -9,8 +9,7 @@ import {DriverInputComponent} from "@/components/driver-input.component";
  * {@link DrivableComponent}) and writes normalized targets into their {@link DriverInputComponent}.
  * No smoothing, no physics — a future AiDriveInputSystem fills the same component for computer cars.
  *
- * Runs at `Higher` priority so the intent is ready before the physics update consumes it. Phase 2
- * only wires the throttle.
+ * Runs at `Higher` priority so the intent is ready before the physics update consumes it.
  */
 export class PhysicDriveInputSystem extends System {
     public priority = SystemPriority.Higher;
@@ -26,11 +25,21 @@ export class PhysicDriveInputSystem extends System {
 
     public update(): void {
         const keyboard = this._engine.input.keyboard;
-        const accelerating = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate));
+        const throttle = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Accelerate)) ? 1 : 0;
+        const brake = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.Brake)) ? 1 : 0;
+        const steerLeft = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerLeft));
+        const steerRight = keyboard.isHeld(KeybindingsService.getKeyFor(Keybindings.SteerRight));
+        const steer = (steerLeft ? -1 : 0) + (steerRight ? 1 : 0); // [-1, 1]; both held cancels out
+        const reverseRequested = keyboard.wasPressed(KeybindingsService.getKeyFor(Keybindings.EngageReverse));
+
         for (const entity of this.query.entities) {
             const input = entity.get(DriverInputComponent);
             if (!input) continue;
-            input.throttleTarget = accelerating ? 1 : 0;
+            input.throttleTarget = throttle;
+            input.brakeTarget = brake;
+            input.steerTarget = steer;
+            // Latch the edge-triggered press; the update system clears it once consumed.
+            if (reverseRequested) input.reverseToggleRequested = true;
         }
     }
 }

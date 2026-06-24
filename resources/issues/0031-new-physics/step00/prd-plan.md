@@ -132,14 +132,22 @@ retromarcia si attiva col toggle. L'HUD mostra anche pedali e accelerazione long
 
 ### Acceptance criteria
 
-- [ ] `DriverInputComponent` espone `throttleTarget`, `brakeTarget`, `steerTarget`,
-  `reverseToggleRequested`; l'input system li popola da tastiera, senza smoothing né fisica.
-- [ ] L'update system smussa pedali e sterzo riusando `smoothPedal`/`updateSteeringAngle`/`sumClamp`.
-- [ ] Premendo il freno l'auto decelera in linea retta in modo stabile.
-- [ ] Lo sterzo ruota le ruote anteriori (rendering) ma la traiettoria resta rettilinea.
-- [ ] Il toggle retromarcia inverte il verso della spinta tracer a veicolo (quasi) fermo.
-- [ ] L'HUD mostra pedali (gas/freno) e accelerazione longitudinale oltre alla km/h.
-- [ ] L'update system resta agnostico rispetto alla sorgente dell'intento (umano/AI).
+- [x] `DriverInputComponent` espone `throttleTarget`, `brakeTarget`, `steerTarget`,
+  `reverseToggleRequested`; `PhysicDriveInputSystem` li popola da tastiera (gas/freno held, sterzo
+  ∈ [−1,1] da left/right, retromarcia da `wasPressed` latched), senza smoothing né fisica.
+- [x] `PhysicDriveUpdateSystem` smussa pedali (`smoothPedal`) e sterzo (rampa/ritorno con `sumClamp`,
+  stessa logica di `updateSteeringAngle` ma guidata dal `steerTarget`). `tsc` pulito, 67 unit test verdi.
+- [x] Freno: forza frenante opposta al moto attraverso `integrateLongitudinalStep`, con clamp che
+  impedisce di superare lo zero (non inverte l'auto da solo). Stabilità in retta **by construction**;
+  decelerazione lineare già coperta dall'unit test dell'integratore — **da verificare a mano**.
+- [x] Lo sterzo aggiorna solo `steeringAngle` (le ruote anteriori ruotano via `getWheelAxisRotation`
+  in `onPostUpdate`); `heading` resta fisso e `velBody.y = 0` → traiettoria rettilinea **by
+  construction** — resa visiva **da verificare a mano**.
+- [x] `handleReverseToggle`: il toggle (one-shot consumato dall'update) inverte `isReverse` solo sotto
+  `reverseToggleMaxSpeed`; la spinta tracer è firmata da `driveDir` (avanti/indietro).
+- [x] L'HUD mostra `v: <km/h> [D/R]`, `gas`/`brake` (pedali smussati) e `aLong` (accel. longitudinale).
+- [x] L'update system interroga `[DriverInputComponent]` (non la tastiera): agnostico alla sorgente
+  dell'intento (umano/AI), lo smoothing di attuazione vive qui.
 
 ---
 

@@ -39,3 +39,10 @@ Considera anche la struttura attuale del software
 /implement-plan `Phase 2: Tracer bullet — guida in avanti end-to-end` at @resources/issues/0031-new-physics/step00/prd-plan.md
 ```
 
+```md
+/implement-plan `Phase 3: Tracer bullet — guida in avanti end-to-end` at @resources/issues/0031-new-physics/step00/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software, che è sviluppato con ExcaliburJs, quindi si dovrebbero considerare anche le sue
+convenzioni e le sue buone pratiche.
+```
+
