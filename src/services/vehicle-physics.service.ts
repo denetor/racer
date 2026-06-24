@@ -5,13 +5,22 @@
  * unit-tested at the bench. The body frame convention is **x = forward, y = lateral**. Conversion
  * to pixels happens only at render time, via {@link pxPerMeter}.
  *
- * Step 0 / Phase 2 only needs `pxPerMeter`, `bodyToWorld` and `integrateLongitudinalStep`; the
- * remaining helpers (`localToBody`, `worldToBody`, `getTotalMass`) are added in Phase 4.
+ * The body frame is **x = forward, y = lateral**; the local (art) frame is the nose-up sprite frame
+ * where forward is `-y` and lateral is `+x`. `localToBody` bridges the two.
  */
 
 export interface Vec2 {
     x: number;
     y: number;
+}
+
+/**
+ * Bridges the nose-up local frame (the sprite/child-actor frame, forward = -y, lateral = +x) to the
+ * physics body frame (forward = +x, lateral = +y). Used once to map the drawn wheel/axle geometry
+ * onto the body frame for the arms `r_i`, so the spritesheet never has to be rotated.
+ */
+export function localToBody(v: Vec2): Vec2 {
+    return {x: -v.y, y: v.x};
 }
 
 /**
@@ -33,6 +42,28 @@ export function bodyToWorld(v: Vec2, theta: number): Vec2 {
         x: v.x * cos - v.y * sin,
         y: v.x * sin + v.y * cos,
     };
+}
+
+/**
+ * Rotates a vector from the world frame to the body frame, given the body heading angle `theta`
+ * (radians). Inverse of {@link bodyToWorld} (rotation by -theta).
+ */
+export function worldToBody(v: Vec2, theta: number): Vec2 {
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+    return {
+        x: v.x * cos + v.y * sin,
+        y: -v.x * sin + v.y * cos,
+    };
+}
+
+/**
+ * Total mass (kg) used by the physics: chassis mass plus the current fuel mass. Single source of
+ * truth so fuel burn (which lowers mass over time) reflects everywhere — static load, rolling
+ * resistance, integration. Fuel is inert in Step 0.
+ */
+export function getTotalMass(mass: number, fuelMass: number): number {
+    return mass + fuelMass;
 }
 
 /**

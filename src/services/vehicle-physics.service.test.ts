@@ -1,4 +1,4 @@
-import {bodyToWorld, integrateLongitudinalStep, pxPerMeter} from './vehicle-physics.service';
+import {bodyToWorld, getTotalMass, integrateLongitudinalStep, localToBody, pxPerMeter, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -27,6 +27,53 @@ describe('bodyToWorld', () => {
         const w = bodyToWorld({x: 2, y: 0}, Math.PI); // heading points along -x
         expect(w.x).toBeCloseTo(-2);
         expect(w.y).toBeCloseTo(0);
+    });
+});
+
+describe('localToBody', () => {
+    it('maps nose-up local forward (-y) onto body forward (+x)', () => {
+        const b = localToBody({x: 0, y: -1}); // local forward
+        expect(b.x).toBeCloseTo(1);
+        expect(b.y).toBeCloseTo(0);
+    });
+
+    it('maps local lateral (+x) onto body lateral (+y)', () => {
+        const b = localToBody({x: 1, y: 0});
+        expect(b.x).toBeCloseTo(0);
+        expect(b.y).toBeCloseTo(1);
+    });
+});
+
+describe('worldToBody', () => {
+    it('is the identity at theta = 0', () => {
+        const b = worldToBody({x: 3, y: 2}, 0);
+        expect(b.x).toBeCloseTo(3);
+        expect(b.y).toBeCloseTo(2);
+    });
+
+    it('inverts a known rotation', () => {
+        // world vector pointing +y, body heading +90deg -> body-forward (+x)
+        const b = worldToBody({x: 0, y: 1}, Math.PI / 2);
+        expect(b.x).toBeCloseTo(1);
+        expect(b.y).toBeCloseTo(0);
+    });
+
+    it('round-trips with bodyToWorld for an arbitrary theta', () => {
+        const v = {x: 1.5, y: -0.7};
+        const theta = 0.9;
+        const back = worldToBody(bodyToWorld(v, theta), theta);
+        expect(back.x).toBeCloseTo(v.x);
+        expect(back.y).toBeCloseTo(v.y);
+    });
+});
+
+describe('getTotalMass', () => {
+    it('sums chassis mass and fuel mass', () => {
+        expect(getTotalMass(1000, 60)).toBe(1060);
+    });
+
+    it('equals the chassis mass with an empty tank', () => {
+        expect(getTotalMass(1000, 0)).toBe(1000);
     });
 });
 

@@ -168,14 +168,28 @@ scena di produzione), mantenendo il `PhysicsDebugHud` al posto della `DrivingDas
 
 ### Acceptance criteria
 
-- [ ] `vehicle-physics.service` espone `localToBody`, `worldToBody`, `getTotalMass`, con unit test
-  verdi (incluso il round-trip `bodyToWorld`/`worldToBody` e i casi a θ noti).
-- [ ] `physics.constants.ts` raccoglie le costanti generiche; nessun magic number nei system.
-- [ ] `PhysicVehicleActor` dichiara il datasheet completo (anche i campi inerti) come unico punto di
-  verità dei parametri per-veicolo.
-- [ ] `PhysicsPlaygroundScene` replica mappa, superfici, ostacoli, race-data, checkpoint, giri e
-  laptime, con `PhysicVehicleActor` + i due nuovi system + camera + `PhysicsDebugHud`.
-- [ ] `npm run build` e `npm run test:unit` verdi; baseline Playwright invariata.
-- [ ] Checklist di verifica manuale dello Step 0 superata: accelera/frena in retta stabile, km/h e
-  pedali coerenti, sterzo gira le ruote ma non l'auto, stop sui muri, camera/sprite/emitter corretti;
-  con `START_SCENE='playground'` la scena vecchia è identica.
+- [x] `vehicle-physics.service` espone `localToBody`, `worldToBody`, `getTotalMass`, con unit test
+  verdi: round-trip `bodyToWorld`/`worldToBody` a θ arbitrario, casi a θ noti, mapping locale→corpo,
+  somma massa+carburante (74 test totali).
+- [x] `physics.constants.ts` raccoglie le costanti generiche (`RHO_AIR`, `G`,
+  `LOW_SPEED_BLEND_THRESHOLD`); i system non contengono magic number generici (i parametri stanno
+  sul datasheet dell'attore).
+- [x] `PhysicVehicleActor` dichiara il datasheet completo (anche i campi inerti: `cogPosition`,
+  `cogHeight`, `corneringStiffness` (Cα), `drivetrain`/`driveBias`, `fuelCapacity`/`fuelMass`/`fuelBurn`)
+  come unico punto di verità; geometria → `wheelArmsBody` (bracci `r_i` in m via `localToBody`), `Iz` e
+  `totalMass` derivati da geometria/massa.
+- [x] `PhysicsPlaygroundScene` replica mappa, superfici, ostacoli, `RaceData`, checkpoint, giri e
+  laptime (espone `raceData`/`timeIntoScene` come `PlaygroundScene`, così il `CheckpointActor`
+  condiviso funziona invariato), con `PhysicVehicleActor` + i due nuovi system + camera + `PhysicsDebugHud`.
+- [x] `npm run test:unit` verde (74 test); build di produzione Vite verde (`tsc` pulito + bundle
+  generato — `npm run build` fallisce solo nel rimuovere `dist/` di proprietà di root creata dal
+  container: artefatto di permessi, non di codice). **Baseline Playwright invariata richiede
+  `START_SCENE='playground'` committato** (vedi nota sotto).
+- [ ] Checklist di verifica manuale dello Step 0 (utente, da lanciare): accelera/frena in retta
+  stabile, km/h e pedali coerenti, sterzo gira le ruote ma non l'auto, stop sui muri,
+  camera/sprite/emitter corretti, giri/laptime coerenti; con `START_SCENE='playground'` la scena
+  vecchia è identica. **Da verificare a mano.**
+
+> **Nota committal:** `main.ts` ha attualmente `START_SCENE='physics'` (flip locale per la verifica
+> manuale). Va riportato a `'playground'` **prima del commit**, altrimenti la build Playwright
+> screenshotta la scena dev e rompe la baseline.

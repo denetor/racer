@@ -1,14 +1,26 @@
 import {vec, Vector} from "excalibur";
 import {BaseVehicleActor} from "@/actors/base-vehicle.actor";
-import {pxPerMeter as computePxPerMeter} from "@/services/vehicle-physics.service";
+import {getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2} from "@/services/vehicle-physics.service";
+
+/** Driven axle layout: front-, rear- or all-wheel drive. */
+export type Drivetrain = 'fwd' | 'rwd' | 'awd';
+
+/** Body-frame (forward = +x, lateral = +y) arm of each wheel relative to the centre of gravity, in metres. */
+export interface WheelArms {
+    frontLeftWheel: Vec2;
+    frontRightWheel: Vec2;
+    rearLeftWheel: Vec2;
+    rearRightWheel: Vec2;
+}
 
 /**
  * Force-based vehicle. Shares the visual setup with {@link BaseVehicleActor} and adds the planar
  * rigid-body state in SI units (body frame: x = forward, y = lateral). Position and collisions are
  * owned by Excalibur; velocity is our source of truth and written to `actor.vel` each frame.
  *
- * Step 0 / Phase 2 carries only the minimal datasheet needed by the straight-line tracer; the full
- * per-vehicle datasheet (cog, Iz, Cα, drivetrain, fuel, ...) is filled in Phase 4.
+ * Holds the full per-vehicle datasheet as the single source of truth. Many fields are still inert
+ * placeholders (cog, Iz, Cα, drivetrain, fuel, ...): they are consumed by the later physics steps,
+ * but declared here from the start so there is one place to tune a vehicle.
  */
 export class PhysicVehicleActor extends BaseVehicleActor {
     // motion state required by the visual base (writable: the drive systems mutate them)
@@ -26,9 +38,27 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // longitudinal acceleration of the last integrated frame (m/s²), exposed for the debug HUD
     public longitudinalAccel: number = 0;
 
-    // --- minimal per-vehicle datasheet (full datasheet arrives in Phase 4) ---
-    public mass: number = 1000;         // kg
+    // --- per-vehicle datasheet (single source of truth) ---
+    public mass: number = 1000;         // kg, chassis mass (ex `weight`)
     public lengthMeters: number = 4.5;  // m; with the 121px sprite height -> pxPerMeter
+
+    // Centre of gravity in body-frame metres, relative to the sprite centre (forward x, lateral y).
+    // Default is the geometric centre — the implicit assumption of the old model.
+    public cogPosition: Vector = vec(0, 0);
+    public cogHeight: number = 0.5;     // m, COG height above ground; load-transfer gain (inert at Step 0)
+
+    // Tyre cornering stiffness Cα (N/rad): lateral force per unit slip angle (inert at Step 0).
+    public corneringStiffness: number = 50000;
+
+    // Drivetrain: which axle(s) receive the drive force, and the front fraction for AWD (inert at Step 0).
+    public drivetrain: Drivetrain = 'rwd';
+    public driveBias: number = 0;       // [0, 1] fraction of drive to the front axle
+
+    // Fuel mass, concentrated at the COG and burned slowly over time (inert at Step 0). The physics
+    // mass is `getTotalMass(mass, fuelMass)` so burn reflects everywhere through one helper.
+    public fuelCapacity: number = 60;   // kg, full tank
+    public fuelMass: number = 60;       // kg, current fuel
+    public fuelBurn: number = 0.01;     // kg/s
 
     // pedal press/release rates (units per second), reused by the shared smoothPedal actuation
     public throttlePressRate: number = 5.0;
@@ -50,5 +80,48 @@ export class PhysicVehicleActor extends BaseVehicleActor {
 
     public get pxPerMeter(): number {
         return computePxPerMeter(this.lengthMeters);
+    }
+
+    /** Total physics mass (kg): chassis + current fuel, via the single-source-of-truth helper. */
+    public get totalMass(): number {
+        return getTotalMass(this.mass, this.fuelMass);
+    }
+
+    /** Wheelbase L (m), from the axle positions drawn (in px) by the base. */
+    public get wheelbaseMeters(): number {
+        return (Math.abs(this.frontAxlePosition) + Math.abs(this.rearAxlePosition)) / this.pxPerMeter;
+    }
+
+    /** Average track W (m), from the axle widths drawn (in px) by the base. */
+    public get trackMeters(): number {
+        return ((this.frontAxleWidth + this.rearAxleWidth) / 2) / this.pxPerMeter;
+    }
+
+    /**
+     * Yaw moment of inertia Iz ≈ m·(L²+W²)/12 (kg·m²): tuning knob for how readily the body rotates.
+     * Derived from the total mass and geometry so it stays consistent as they change.
+     */
+    public get Iz(): number {
+        const L = this.wheelbaseMeters;
+        const W = this.trackMeters;
+        return this.totalMass * (L * L + W * W) / 12;
+    }
+
+    /**
+     * The four wheel arms `r_i` in body-frame metres, relative to the COG. The wheels are drawn in
+     * the nose-up local frame; {@link localToBody} maps that geometry onto the physics body frame
+     * (forward = +x) without rotating the spritesheet.
+     */
+    public get wheelArmsBody(): WheelArms {
+        const arm = (localX: number, localY: number): Vec2 => {
+            const body = localToBody({x: localX / this.pxPerMeter, y: localY / this.pxPerMeter});
+            return {x: body.x - this.cogPosition.x, y: body.y - this.cogPosition.y};
+        };
+        return {
+            frontLeftWheel: arm(-this.frontAxleWidth / 2, this.frontAxlePosition),
+            frontRightWheel: arm(this.frontAxleWidth / 2, this.frontAxlePosition),
+            rearLeftWheel: arm(-this.rearAxleWidth / 2, this.rearAxlePosition),
+            rearRightWheel: arm(this.rearAxleWidth / 2, this.rearAxlePosition),
+        };
     }
 }

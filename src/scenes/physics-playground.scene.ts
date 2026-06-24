@@ -12,14 +12,29 @@ import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 import {DrivableComponent} from "@/components/drivable.component";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicsDebugHud} from "@/ui/physics-debug-hud.actor";
+import {RaceData} from "@/models/race-data.model";
+import {VehicleRaceData} from "@/models/vehicle-race-data.model";
+import {PluginObject} from "@excaliburjs/plugin-tiled";
 
 /**
- * Dev scene for the new force-based physics. Reuses the playground map, surfaces and obstacles, but
- * drives a {@link PhysicVehicleActor} through the two new systems plus a debug HUD. It is NOT part
- * of the Playwright baseline (only the production `playground` scene is). Full parity with
- * `PlaygroundScene` (race-data, checkpoints, laps) arrives in Phase 4.
+ * Dev scene for the new force-based physics. At parity with `PlaygroundScene` (same map, surfaces,
+ * obstacles, race-data, checkpoints, laps and laptime), but drives a {@link PhysicVehicleActor}
+ * through the two new systems and shows a {@link PhysicsDebugHud} instead of the `DrivingDashboard`.
+ *
+ * It exposes `raceData`/`timeIntoScene` with the same shape `PlaygroundScene` does, so the shared
+ * {@link CheckpointActor} (auto-created by the Tiled factory) drives lap timing here unchanged. It is
+ * NOT part of the Playwright baseline — only the production `playground` scene is.
  */
 export class PhysicsPlaygroundScene extends Scene {
+    raceData: RaceData;
+    // time elapsed since the scene start (ms), read by the checkpoint actors for laptimes
+    timeIntoScene: number = 0;
+
+    constructor() {
+        super();
+        this.raceData = new RaceData(5);
+    }
+
     override onInitialize(_engine: Engine): void {
         Resources.playgroundMap.addToScene(this);
         SurfacesService.setProperties(Resources.playgroundMap);
@@ -45,5 +60,18 @@ export class PhysicsPlaygroundScene extends Scene {
         const hud = new PhysicsDebugHud();
         this.add(hud);
         hud.setVehicle(player);
+
+        // race data: parity with PlaygroundScene (laps, checkpoints, laptime)
+        this.raceData = new RaceData(5);
+        this.raceData.addPlayer('Player1', new VehicleRaceData('Player1'));
+        const checkpointObjects: PluginObject[] = Resources.playgroundMap.getObjectsByClassName('checkpoint');
+        this.raceData.totalCheckpoints = checkpointObjects.filter(obj => obj.name !== 'finish-line').length;
+
+        this.timeIntoScene = 0;
+    }
+
+    onPostUpdate(engine: Engine, elapsed: number) {
+        super.onPostUpdate(engine, elapsed);
+        this.timeIntoScene += elapsed;
     }
 }

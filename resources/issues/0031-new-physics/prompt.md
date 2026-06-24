@@ -46,3 +46,10 @@ Considera anche la struttura attuale del software, che è sviluppato con Excalib
 convenzioni e le sue buone pratiche.
 ```
 
+```md
+/implement-plan `Phase 4: Completamento impalcatura + parità scena` at @resources/issues/0031-new-physics/step00/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software, che è sviluppato con ExcaliburJs, quindi si dovrebbero considerare anche le sue
+convenzioni e le sue buone pratiche.
+```
+
