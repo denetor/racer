@@ -37,6 +37,9 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public brakeInput: number = 0;
     // longitudinal acceleration of the last integrated frame (m/s²), exposed for the debug HUD
     public longitudinalAccel: number = 0;
+    // average front/rear axle slip angle of the last frame (rad), exposed for the debug HUD
+    public slipAngleFront: number = 0;
+    public slipAngleRear: number = 0;
 
     // --- per-vehicle datasheet (single source of truth) ---
     public mass: number = 1000;         // kg, chassis mass (ex `weight`)
@@ -47,8 +50,11 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public cogPosition: Vector = vec(0, 0);
     public cogHeight: number = 0.5;     // m, COG height above ground; load-transfer gain (inert at Step 0)
 
-    // Tyre cornering stiffness Cα (N/rad): lateral force per unit slip angle (inert at Step 0).
-    public corneringStiffness: number = 50000;
+    // Tyre cornering stiffness Cα (N/rad, **per wheel**; the axle total emerges by summing the two
+    // tyres): lateral force per unit slip angle. The rear bites a bit more than the front to give a
+    // slight, safe-to-tune understeer (the front loses grip first, so the car widens before it spins).
+    public corneringStiffnessFront: number = 40000;
+    public corneringStiffnessRear: number = 50000;
 
     // Drivetrain: which axle(s) receive the drive force, and the front fraction for AWD (inert at Step 0).
     public drivetrain: Drivetrain = 'rwd';

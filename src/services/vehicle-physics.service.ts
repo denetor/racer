@@ -111,6 +111,40 @@ export function integrateBody(state: BodyMotion, fx: number, fy: number, mz: num
 }
 
 /**
+ * Velocity of a single wheel in the body frame, given the body motion `(vx, vy, omega)` and the
+ * wheel arm `r_i` (body-frame metres, relative to the COG). A wheel sits at a different point of a
+ * rotating body, so it sees a different velocity than the COG (spec §3.6):
+ *
+ *   v_i_x = v_x − ω·r_i_y      v_i_y = v_y + ω·r_i_x
+ *
+ * With `omega = 0` every wheel sees the plain body velocity.
+ */
+export function wheelVelocity(vx: number, vy: number, omega: number, arm: Vec2): Vec2 {
+    return {
+        x: vx - omega * arm.y,
+        y: vy + omega * arm.x,
+    };
+}
+
+/**
+ * Slip angle of a wheel (rad): the angle between where the wheel points and where it actually
+ * travels, `α = atan2(v_i_y, v_i_x) − δ`. The steering `δ` is subtracted for the steered (front)
+ * wheels; pass `0` for the rear. Zero when the wheel rolls straight along its heading.
+ */
+export function slipAngle(vix: number, viy: number, delta: number): number {
+    return Math.atan2(viy, vix) - delta;
+}
+
+/**
+ * Linear tyre lateral force (N) in the wheel frame: `Fy = −Cα·α`. Proportional to and **opposing**
+ * the slip angle (a wheel slipping one way is pushed back the other), zero at zero slip. No
+ * saturation / friction circle yet (Step 2): the force grows unbounded with the slip angle.
+ */
+export function lateralForceLinear(alpha: number, corneringStiffness: number): number {
+    return -corneringStiffness * alpha;
+}
+
+/**
  * Kinematic bicycle yaw rate: `ω = v_x·tan(δ)/L` (forward velocity, steering angle, wheelbase).
  * The yaw scales with speed and steering, is zero at standstill or zero steer, and flips sign in
  * reverse (negative `v_x`). Used as the provisional yaw source in Step 1 and reused as the

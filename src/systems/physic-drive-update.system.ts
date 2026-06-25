@@ -1,7 +1,7 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {bodyToWorld, integrateBody, kinematicYawRate} from "@/services/vehicle-physics.service";
+import {bodyToWorld, integrateBody, lateralForceLinear, slipAngle, wheelVelocity} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
 
 /**
@@ -11,11 +11,13 @@ import {smoothPedal, sumClamp} from "@/services/math.service";
  * solver (`actor.pos` is never written). Agnostic to who produced the intent, so it also drives AI
  * cars unchanged.
  *
- * The car now turns: the heading rotates by the yaw rate each frame and carries the velocity into
- * the world frame. In this step the yaw is **kinematic** (bicycle formula `ω = v_x·tan(δ)/L`,
- * applied at all speeds) and the only real force is the Step 0 longitudinal "tracer" at the COG —
- * the per-wheel tyre forces that make yaw emergent arrive in the next phase. The actuation
- * smoothing (shared with human/AI sources) lives here, not in the input system.
+ * The car turns from **real per-wheel tyre forces**: each wheel sees its own velocity (it sits at a
+ * different point of the rotating body), hence its own slip angle, hence a linear lateral force
+ * `Fy = −Cα·α` (no friction circle yet). Those forces sum into the net `Fx`/`Fy` and a yaw torque
+ * `Mz`, so the yaw rate now **emerges** from the geometry instead of being scripted — `yawRate` is
+ * genuinely independent of the velocity direction. The longitudinal propulsion stays the Step 0
+ * "tracer" at the COG (no yaw torque from it). The actuation smoothing (shared with human/AI
+ * sources) lives here, not in the input system.
  */
 export class PhysicDriveUpdateSystem extends System {
     public priority = SystemPriority.Average;
@@ -78,32 +80,61 @@ export class PhysicDriveUpdateSystem extends System {
     }
 
     /**
-     * Integrates one rigid-body step and rotates the heading by the yaw.
+     * Builds the net force and yaw torque from the longitudinal tracer plus the four tyre lateral
+     * forces, integrates one rigid-body step, and rotates the heading by the resulting yaw.
      *
-     * The yaw is **kinematic** in this step: `ω = v_x·tan(δ)/L` from the bicycle model, applied at
-     * all speeds (the emergent per-wheel torque arrives in the next phase). The only real force is
-     * the Step 0 longitudinal "tracer" at the COG — throttle drive (signed by reverse gear) plus a
-     * brake force opposing motion, with linear drag expressed as the force `−m·dragCoeff·v_x` so the
-     * rigid-body integrator stays purely force-driven. The lateral force is the kinematic centripetal
-     * term `m·v_x·ω`: it keeps the velocity locked to the heading (no slip yet) so the path curves
-     * with radius `v/ω`; the real, slip-driven lateral force replaces it next phase. The brake cannot
-     * push the car past zero into the opposite direction (it stops at standstill).
+     * Longitudinal tracer at the COG (Step 0, no yaw torque): throttle drive (signed by reverse
+     * gear) plus a brake force opposing motion, with linear drag as the force `−m·dragCoeff·v_x` so
+     * the integrator stays purely force-driven. Per wheel: take its velocity (it rotates with the
+     * body), its slip angle (front wheels subtract the steering `δ`, rear wheels `0`), and the
+     * linear lateral force `Fy = −Cα·α`. The front-wheel force is **rotated by `δ`** back into the
+     * body frame before summing, so even at wide steer the curve stays faithful. Summing the forces
+     * gives `Fx`/`Fy`; summing their moments `r_i_x·F_i_y − r_i_y·F_i_x` gives the yaw torque `Mz`,
+     * from which the yaw rate emerges. The brake cannot push the car past zero into the opposite
+     * direction (it stops at standstill).
      */
     private integrateMotion(vehicle: PhysicVehicleActor, dt: number): void {
         const vx = vehicle.velBody.x;
         const vy = vehicle.velBody.y;
+        const omega = vehicle.yawRate;
         const mass = vehicle.totalMass;
 
         const driveDir = vehicle.isReverse ? -1 : 1;
         const driveForce = vehicle.throttleInput * vehicle.tracerDriveForce * driveDir;
         const brakeForce = vehicle.brakeInput * vehicle.tracerBrakeForce;
         const dragForce = -mass * vehicle.linearDragCoeff * vx;
-        const fx = driveForce - Math.sign(vx) * brakeForce + dragForce;
+        let fx = driveForce - Math.sign(vx) * brakeForce + dragForce;
+        let fy = 0;
+        let mz = 0;
 
-        const omega = kinematicYawRate(vx, vehicle.steeringAngle, vehicle.wheelbaseMeters);
-        const fy = mass * vx * omega; // kinematic centripetal force (no yaw torque: Mz = 0)
+        // Per-wheel linear tyre forces: the curve emerges from each wheel's slip angle.
+        const arms = vehicle.wheelArmsBody;
+        const wheels = [
+            {arm: arms.frontLeftWheel, isFront: true},
+            {arm: arms.frontRightWheel, isFront: true},
+            {arm: arms.rearLeftWheel, isFront: false},
+            {arm: arms.rearRightWheel, isFront: false},
+        ];
+        let slipFrontSum = 0;
+        let slipRearSum = 0;
+        for (const {arm, isFront} of wheels) {
+            const delta = isFront ? vehicle.steeringAngle : 0;
+            const cAlpha = isFront ? vehicle.corneringStiffnessFront : vehicle.corneringStiffnessRear;
+            const wv = wheelVelocity(vx, vy, omega, arm);
+            const alpha = slipAngle(wv.x, wv.y, delta);
+            const fLat = lateralForceLinear(alpha, cAlpha); // lateral force in the wheel frame
+            // Rotate the wheel-frame force (0, fLat) by δ into the body frame (rear: δ = 0 -> no-op).
+            const fwx = -fLat * Math.sin(delta);
+            const fwy = fLat * Math.cos(delta);
+            fx += fwx;
+            fy += fwy;
+            mz += arm.x * fwy - arm.y * fwx;
+            if (isFront) slipFrontSum += alpha; else slipRearSum += alpha;
+        }
+        vehicle.slipAngleFront = slipFrontSum / 2;
+        vehicle.slipAngleRear = slipRearSum / 2;
 
-        const next = integrateBody({vx, vy, omega}, fx, fy, 0, mass, vehicle.Iz, dt);
+        const next = integrateBody({vx, vy, omega}, fx, fy, mz, mass, vehicle.Iz, dt);
         // Braking decelerates but never reverses the car on its own: clamp to standstill on overshoot.
         if (driveForce === 0 && brakeForce > 0 && vx !== 0 && Math.sign(next.vx) !== Math.sign(vx)) {
             next.vx = 0;

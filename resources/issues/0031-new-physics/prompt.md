@@ -105,3 +105,25 @@ still genuinely exercising integrateBody, I added the kinematic centripetal forc
 
 Left for you (manual verification, per your workflow)
 ```
+
+```md
+/implement-plan `Phase 2: Modello pneumatico lineare a 4 ruote (imbardata emergente dalle forze)` at @resources/issues/0031-new-physics/step01/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+
+```md
+  What changed                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                   
+  1. vehicle-physics.service.ts — three new pure functions (SI, body-frame, Excalibur-free):                                                                                                                                                                                                                       
+    - wheelVelocity(vx, vy, omega, arm) → {x: vx − ω·r_y, y: vy + ω·r_x} (§3.6)                                                                                                                                                                                                                                    
+    - slipAngle(vix, viy, delta) → atan2(viy, vix) − δ                                                                                                                                                                                                                                                             
+    - lateralForceLinear(alpha, Cα) → −Cα·α (linear, no saturation)                                                                                                                                                                                                                                                
+    - kinematicYawRate is kept (it's reused as the low-speed branch in Phase 3) but no longer in the update flow.                                                                                                                                                                                                  
+  2. physic-vehicle.actor.ts — split the single corneringStiffness into corneringStiffnessFront = 40000 / corneringStiffnessRear = 50000 (N/rad per wheel, rear bites more → slight understeer). Added slipAngleFront/slipAngleRear readout fields for the HUD.                                                    
+  3. physic-drive-update.system.ts — integrateMotion now drives the yaw from real per-wheel forces instead of the kinematic centripetal term: for each of the 4 wheelArmsBody it computes wheel velocity → slip angle (front subtracts δ, rear 0) → linear lateral force, rotates the front-wheel force by δ into  
+  the body frame, then sums net Fx/Fy plus the longitudinal tracer at the COG and the yaw torque Mz = Σ(r_x·F_y − r_y·F_x). integrateBody uses the real yawRate state, so yaw is now genuinely independent of velocity direction.                                                                                  
+  4. physics-debug-hud.actor.ts — added a slip f/r: …° / …° line (panel grown to 120px).                                                                                                                                                                                                                           
+  5. Tests — added wheelVelocity/slipAngle/lateralForceLinear cases (sign, proportionality, zero-slip, ω=0).
+```

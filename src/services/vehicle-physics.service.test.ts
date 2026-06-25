@@ -1,4 +1,4 @@
-import {bodyToWorld, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, localToBody, pxPerMeter, worldToBody} from './vehicle-physics.service';
+import {bodyToWorld, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, pxPerMeter, slipAngle, wheelVelocity, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -125,6 +125,52 @@ describe('integrateBody', () => {
     it('leaves the state unchanged for a non-positive dt', () => {
         const state = {vx: 3, vy: -1, omega: 0.7};
         expect(integrateBody(state, 9999, 9999, 9999, 1000, 500, 0)).toEqual(state);
+    });
+});
+
+describe('wheelVelocity', () => {
+    it('equals the body velocity when the body is not yawing', () => {
+        const v = wheelVelocity(10, 2, 0, {x: 1.5, y: 0.8});
+        expect(v.x).toBeCloseTo(10);
+        expect(v.y).toBeCloseTo(2);
+    });
+
+    it('adds the yaw contribution from the arm: v_x = v_x − ω·r_y, v_y = v_y + ω·r_x', () => {
+        // ω = 2, arm = (1.5, 0.8): v_x = 10 − 2·0.8 = 8.4 ; v_y = 0 + 2·1.5 = 3
+        const v = wheelVelocity(10, 0, 2, {x: 1.5, y: 0.8});
+        expect(v.x).toBeCloseTo(8.4);
+        expect(v.y).toBeCloseTo(3);
+    });
+});
+
+describe('slipAngle', () => {
+    it('is the velocity direction when the wheel is not steered', () => {
+        // atan2(1, 1) = 45deg, no steering subtracted
+        expect(slipAngle(1, 1, 0)).toBeCloseTo(Math.PI / 4);
+    });
+
+    it('subtracts the steering angle of a steered wheel', () => {
+        // pure forward velocity (atan2 = 0) minus δ = -δ
+        expect(slipAngle(1, 0, 0.3)).toBeCloseTo(-0.3);
+    });
+
+    it('is zero when the wheel rolls straight along its heading', () => {
+        expect(slipAngle(10, 0, 0)).toBeCloseTo(0);
+    });
+});
+
+describe('lateralForceLinear', () => {
+    it('opposes the slip angle (restoring force)', () => {
+        expect(lateralForceLinear(0.1, 50000)).toBeCloseTo(-5000);
+        expect(lateralForceLinear(-0.1, 50000)).toBeCloseTo(5000);
+    });
+
+    it('is proportional to the cornering stiffness', () => {
+        expect(lateralForceLinear(0.1, 100000)).toBeCloseTo(2 * lateralForceLinear(0.1, 50000));
+    });
+
+    it('is zero at zero slip', () => {
+        expect(lateralForceLinear(0, 50000)).toBeCloseTo(0);
     });
 });
 
