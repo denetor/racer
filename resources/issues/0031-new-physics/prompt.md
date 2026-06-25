@@ -127,3 +127,32 @@ Considera anche la struttura attuale del software
   4. physics-debug-hud.actor.ts — added a slip f/r: …° / …° line (panel grown to 120px).                                                                                                                                                                                                                           
   5. Tests — added wheelVelocity/slipAngle/lateralForceLinear cases (sign, proportionality, zero-slip, ω=0).
 ```
+
+
+```md
+/implement-plan `Phase 3: Blend a bassa velocità (stabilità da fermo)` at @resources/issues/0031-new-physics/step01/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+What changed
+
+1. vehicle-physics.service.ts — new pure function lowSpeedKinematicBlend(speed, threshold, vx, steerAngle, wheelbase) returning {lateralScale, kinematicYaw}:                                                                                                                                                    
+   - lateralScale = clamp(speed/threshold, 0, 1) — 0 at standstill (fully kinematic), 1 at/above threshold (fully dynamic); a non-positive threshold disables the blend.                                                                                                                                          
+   - kinematicYaw reuses kinematicYawRate (the Phase 1 bicycle formula v_x·tan(δ)/L), exactly as the plan intended.
+2. physic-drive-update.system.ts — integrateMotion now keeps the longitudinal tracer (fxTracer, always full) separate from the per-wheel tyre forces (fxTyre/fyTyre/mzTyre). It then:
+  - scales the tyre forces by k (→ 0 at standstill, killing the atan2 noise and the sideways "tangent launch"),                                                                                                                                                                                                  
+  - blends the integrated yaw toward the kinematic value: omega = k·dynamic + (1−k)·kinematicYaw.                                                                                                                                                                                                              
+  - At k = 1 the result is identical to Phase 2 (no regression at cruising speed); at k = 0 the car follows the stable kinematic model.                                                                                                                                                                          
+  - Threshold comes from the shared LOW_SPEED_BLEND_THRESHOLD constant — no magic numbers in the system.                                                                                                                                                                                                         
+3. Tests — 5 cases for lowSpeedKinematicBlend: standstill (k=0), at/above threshold (k=1), linear mid-range (k=0.5), the kinematic yaw value, and the non-positive-threshold guard.                                                                                                                              
+                                                                                                                                                                                                                                                                                                                   
+Verification: npm run build green; npm run test:unit 97/97 green.                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                   
+For you (manual verification — Step 1 closeout): the grill-me-out checklist is now drivable with START_SCENE='physics':                                                                                                                                                                                          
+- straight at zero steer; coherent finite-radius curve; no vibration / tangent-launch from a standstill (blend active); smooth, stable cornering at speed; HUD yawRate + front/rear slip coherent.                                                                                                               
+- ⚠️ Reminder from Phase 2: src/main.ts is still committed with START_SCENE='physics'. Flip it back to 'playground' before committing to keep the Playwright baseline intact.                                                                                                                                    
+                                                                                                                                                                                                                                                                                                               
+If the car oscillates or the understeer feels off while driving, the tuning knobs are corneringStiffnessFront/Rear and Iz on the actor, and LOW_SPEED_BLEND_THRESHOLD for the blend.
+```

@@ -1,4 +1,4 @@
-import {bodyToWorld, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, pxPerMeter, slipAngle, wheelVelocity, worldToBody} from './vehicle-physics.service';
+import {bodyToWorld, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, lowSpeedKinematicBlend, pxPerMeter, slipAngle, wheelVelocity, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -195,5 +195,31 @@ describe('kinematicYawRate', () => {
 
     it('returns zero for a non-positive wheelbase', () => {
         expect(kinematicYawRate(10, 0.4, 0)).toBe(0);
+    });
+});
+
+describe('lowSpeedKinematicBlend', () => {
+    it('is fully kinematic at standstill (lateralScale = 0)', () => {
+        const blend = lowSpeedKinematicBlend(0, 1.5, 0, 0.4, 2.5);
+        expect(blend.lateralScale).toBeCloseTo(0);
+    });
+
+    it('is fully dynamic at or above the threshold (lateralScale = 1)', () => {
+        expect(lowSpeedKinematicBlend(1.5, 1.5, 10, 0.4, 2.5).lateralScale).toBeCloseTo(1);
+        expect(lowSpeedKinematicBlend(5, 1.5, 10, 0.4, 2.5).lateralScale).toBeCloseTo(1);
+    });
+
+    it('scales linearly between the extremes', () => {
+        // speed = half the threshold -> k = 0.5
+        expect(lowSpeedKinematicBlend(0.75, 1.5, 10, 0.4, 2.5).lateralScale).toBeCloseTo(0.5);
+    });
+
+    it('exposes the kinematic bicycle yaw for the given steer and speed', () => {
+        const blend = lowSpeedKinematicBlend(0.75, 1.5, 10, 0.4, 2.5);
+        expect(blend.kinematicYaw).toBeCloseTo(10 * Math.tan(0.4) / 2.5);
+    });
+
+    it('disables the blend for a non-positive threshold (lateralScale = 1)', () => {
+        expect(lowSpeedKinematicBlend(0, 0, 10, 0.4, 2.5).lateralScale).toBe(1);
     });
 });

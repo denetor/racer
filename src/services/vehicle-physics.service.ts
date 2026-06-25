@@ -110,6 +110,32 @@ export function integrateBody(state: BodyMotion, fx: number, fy: number, mz: num
     };
 }
 
+/** Result of the low-speed blend: how much of the dynamic tyre model to apply, and the kinematic fallback yaw. */
+export interface LowSpeedBlend {
+    /** Scale in [0, 1] for the dynamic tyre forces: 0 at standstill (fully kinematic), 1 at/above the threshold. */
+    lateralScale: number;
+    /** Kinematic bicycle yaw rate (rad/s) the model blends toward at low speed. */
+    kinematicYaw: number;
+}
+
+/**
+ * Low-speed kinematic blend (spec §3.10). Below `threshold` the four wheel slip angles are `atan2`
+ * of near-zero velocities, i.e. numerical noise, so the dynamic tyre model makes the car vibrate or
+ * "launch off on a tangent". This fades it out toward a stable kinematic bicycle model with
+ * `k = clamp(speed / threshold, 0, 1)`:
+ *   - the caller scales the dynamic tyre forces by `lateralScale` (→ 0 at standstill),
+ *   - and blends the yaw rate toward `kinematicYaw = v_x·tan(δ)/L` (reused from {@link kinematicYawRate}).
+ * At/above the threshold (`k = 1`) the full dynamic model is returned untouched. A non-positive
+ * threshold disables the blend (`lateralScale = 1`). The exact curve (here linear in `k`) is tunable.
+ */
+export function lowSpeedKinematicBlend(speed: number, threshold: number, vx: number, steerAngle: number, wheelbase: number): LowSpeedBlend {
+    const lateralScale = threshold > 0 ? Math.max(0, Math.min(1, speed / threshold)) : 1;
+    return {
+        lateralScale,
+        kinematicYaw: kinematicYawRate(vx, steerAngle, wheelbase),
+    };
+}
+
 /**
  * Velocity of a single wheel in the body frame, given the body motion `(vx, vy, omega)` and the
  * wheel arm `r_i` (body-frame metres, relative to the COG). A wheel sits at a different point of a

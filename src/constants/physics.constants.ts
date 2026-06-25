@@ -17,4 +17,4 @@ export const G = 9.81;
  * velocities). Under this threshold the model blends toward the kinematic one. Declared now, used
  * by the low-speed blend in Step 1.
  */
-export const LOW_SPEED_BLEND_THRESHOLD = 1.5;
+export const LOW_SPEED_BLEND_THRESHOLD = 5;

@@ -1,8 +1,9 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {bodyToWorld, integrateBody, lateralForceLinear, slipAngle, wheelVelocity} from "@/services/vehicle-physics.service";
+import {bodyToWorld, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, wheelVelocity} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
+import {LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -81,7 +82,8 @@ export class PhysicDriveUpdateSystem extends System {
 
     /**
      * Builds the net force and yaw torque from the longitudinal tracer plus the four tyre lateral
-     * forces, integrates one rigid-body step, and rotates the heading by the resulting yaw.
+     * forces, applies the low-speed kinematic blend, integrates one rigid-body step, and rotates the
+     * heading by the resulting yaw.
      *
      * Longitudinal tracer at the COG (Step 0, no yaw torque): throttle drive (signed by reverse
      * gear) plus a brake force opposing motion, with linear drag as the force `−m·dragCoeff·v_x` so
@@ -89,23 +91,27 @@ export class PhysicDriveUpdateSystem extends System {
      * body), its slip angle (front wheels subtract the steering `δ`, rear wheels `0`), and the
      * linear lateral force `Fy = −Cα·α`. The front-wheel force is **rotated by `δ`** back into the
      * body frame before summing, so even at wide steer the curve stays faithful. Summing the forces
-     * gives `Fx`/`Fy`; summing their moments `r_i_x·F_i_y − r_i_y·F_i_x` gives the yaw torque `Mz`,
-     * from which the yaw rate emerges. The brake cannot push the car past zero into the opposite
-     * direction (it stops at standstill).
+     * gives the tyre `Fx`/`Fy`; summing their moments `r_i_x·F_i_y − r_i_y·F_i_x` gives the yaw torque.
+     *
+     * Below {@link LOW_SPEED_BLEND_THRESHOLD} the slip angles are `atan2` noise, so the dynamic tyre
+     * forces are scaled by `k` (→ 0 at standstill) and the yaw rate blends toward the kinematic
+     * bicycle value: the car steers smoothly from rest without vibrating or launching off on a
+     * tangent. At/above the threshold (`k = 1`) the full dynamic Phase-2 model applies. The brake
+     * cannot push the car past zero into the opposite direction (it stops at standstill).
      */
     private integrateMotion(vehicle: PhysicVehicleActor, dt: number): void {
         const vx = vehicle.velBody.x;
         const vy = vehicle.velBody.y;
         const omega = vehicle.yawRate;
         const mass = vehicle.totalMass;
+        const speed = Math.hypot(vx, vy);
 
+        // Longitudinal "tracer" at the COG (always applied, never blended away).
         const driveDir = vehicle.isReverse ? -1 : 1;
         const driveForce = vehicle.throttleInput * vehicle.tracerDriveForce * driveDir;
         const brakeForce = vehicle.brakeInput * vehicle.tracerBrakeForce;
         const dragForce = -mass * vehicle.linearDragCoeff * vx;
-        let fx = driveForce - Math.sign(vx) * brakeForce + dragForce;
-        let fy = 0;
-        let mz = 0;
+        const fxTracer = driveForce - Math.sign(vx) * brakeForce + dragForce;
 
         // Per-wheel linear tyre forces: the curve emerges from each wheel's slip angle.
         const arms = vehicle.wheelArmsBody;
@@ -115,6 +121,9 @@ export class PhysicDriveUpdateSystem extends System {
             {arm: arms.rearLeftWheel, isFront: false},
             {arm: arms.rearRightWheel, isFront: false},
         ];
+        let fxTyre = 0;
+        let fyTyre = 0;
+        let mzTyre = 0;
         let slipFrontSum = 0;
         let slipRearSum = 0;
         for (const {arm, isFront} of wheels) {
@@ -126,19 +135,28 @@ export class PhysicDriveUpdateSystem extends System {
             // Rotate the wheel-frame force (0, fLat) by δ into the body frame (rear: δ = 0 -> no-op).
             const fwx = -fLat * Math.sin(delta);
             const fwy = fLat * Math.cos(delta);
-            fx += fwx;
-            fy += fwy;
-            mz += arm.x * fwy - arm.y * fwx;
+            fxTyre += fwx;
+            fyTyre += fwy;
+            mzTyre += arm.x * fwy - arm.y * fwx;
             if (isFront) slipFrontSum += alpha; else slipRearSum += alpha;
         }
         vehicle.slipAngleFront = slipFrontSum / 2;
         vehicle.slipAngleRear = slipRearSum / 2;
+
+        // Low-speed blend: fade the dynamic tyre forces out and the yaw toward the kinematic value.
+        const blend = lowSpeedKinematicBlend(speed, LOW_SPEED_BLEND_THRESHOLD, vx, vehicle.steeringAngle, vehicle.wheelbaseMeters);
+        const k = blend.lateralScale;
+        const fx = fxTracer + k * fxTyre;
+        const fy = k * fyTyre;
+        const mz = k * mzTyre;
 
         const next = integrateBody({vx, vy, omega}, fx, fy, mz, mass, vehicle.Iz, dt);
         // Braking decelerates but never reverses the car on its own: clamp to standstill on overshoot.
         if (driveForce === 0 && brakeForce > 0 && vx !== 0 && Math.sign(next.vx) !== Math.sign(vx)) {
             next.vx = 0;
         }
+        // Blend the yaw toward the kinematic value at low speed (k=1 keeps the full dynamic yaw).
+        next.omega = k * next.omega + (1 - k) * blend.kinematicYaw;
 
         vehicle.longitudinalAccel = dt > 0 ? (next.vx - vx) / dt : 0;
         vehicle.velBody = vec(next.vx, next.vy);
