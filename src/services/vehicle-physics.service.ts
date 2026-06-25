@@ -14,6 +14,13 @@ export interface Vec2 {
     y: number;
 }
 
+/** Planar rigid-body motion in the body frame: longitudinal/lateral velocity (m/s) and yaw rate (rad/s). */
+export interface BodyMotion {
+    vx: number;     // forward velocity (m/s)
+    vy: number;     // lateral velocity (m/s)
+    omega: number;  // yaw rate (rad/s)
+}
+
 /**
  * Bridges the nose-up local frame (the sprite/child-actor frame, forward = -y, lateral = +x) to the
  * physics body frame (forward = +x, lateral = +y). Used once to map the drawn wheel/axle geometry
@@ -78,4 +85,38 @@ export function integrateLongitudinalStep(vx: number, fx: number, mass: number, 
     if (dt <= 0) return vx;
     const ax = fx / mass - dragCoeff * vx;
     return vx + ax * dt;
+}
+
+/**
+ * Integrates one step of the planar rigid-body dynamics in the body frame, with the cross
+ * (Coriolis) terms that couple translation and yaw (spec §3.7):
+ *
+ *   v̇_x = Fx/m + v_y·ω      v̇_y = Fy/m − v_x·ω      ω̇ = Mz/Iz
+ *
+ * `Fx`/`Fy` are the net forces (N) in the body frame, `Mz` the net yaw torque (N·m). These exact
+ * cross terms make the body-frame equations equivalent to F = m·a in the world frame, so a constant
+ * world force curves the path correctly as the body rotates. The heading/`θ` update happens outside
+ * (by rotating `heading`, see the update system). A non-positive `dt` leaves the state unchanged.
+ */
+export function integrateBody(state: BodyMotion, fx: number, fy: number, mz: number, mass: number, Iz: number, dt: number): BodyMotion {
+    if (dt <= 0) return {...state};
+    const ax = fx / mass + state.vy * state.omega;
+    const ay = fy / mass - state.vx * state.omega;
+    const angAccel = mz / Iz;
+    return {
+        vx: state.vx + ax * dt,
+        vy: state.vy + ay * dt,
+        omega: state.omega + angAccel * dt,
+    };
+}
+
+/**
+ * Kinematic bicycle yaw rate: `ω = v_x·tan(δ)/L` (forward velocity, steering angle, wheelbase).
+ * The yaw scales with speed and steering, is zero at standstill or zero steer, and flips sign in
+ * reverse (negative `v_x`). Used as the provisional yaw source in Step 1 and reused as the
+ * low-speed branch of the blend in a later phase. Returns 0 for a non-positive wheelbase.
+ */
+export function kinematicYawRate(vx: number, steerAngle: number, wheelbase: number): number {
+    if (wheelbase <= 0) return 0;
+    return vx * Math.tan(steerAngle) / wheelbase;
 }

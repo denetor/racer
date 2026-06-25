@@ -2,13 +2,13 @@ import {Canvas, Engine, ScreenElement} from "excalibur";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 
 const HUD_WIDTH = 240;
-const HUD_HEIGHT = 76;
+const HUD_HEIGHT = 98;
 const LINE_HEIGHT = 22;
 
 /**
  * Minimal debug overlay for the physics dev scene. It grows step by step; it now shows the vehicle
- * speed (km/h) with the gear, the smoothed gas/brake pedals and the longitudinal acceleration
- * (m/s²), all derived from the actor's SI state.
+ * speed (km/h) with the gear, the smoothed gas/brake pedals, the longitudinal acceleration (m/s²)
+ * and the yaw rate (°/s), all derived from the actor's SI state.
  */
 export class PhysicsDebugHud extends ScreenElement {
     private vehicle: PhysicVehicleActor | null = null;
@@ -39,6 +39,7 @@ export class PhysicsDebugHud extends ScreenElement {
         const gas = v ? v.throttleInput : 0;
         const brake = v ? v.brakeInput : 0;
         const aLong = v ? v.longitudinalAccel : 0;
+        const yawRateDeg = v ? v.yawRate * 180 / Math.PI : 0;
 
         ctx.clearRect(0, 0, HUD_WIDTH, HUD_HEIGHT);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -50,6 +51,7 @@ export class PhysicsDebugHud extends ScreenElement {
         this.line(ctx, `v: ${speedKmh.toFixed(1)} km/h  [${gear}]`, 0);
         this.line(ctx, `gas: ${gas.toFixed(2)}  brake: ${brake.toFixed(2)}`, 1);
         this.line(ctx, `aLong: ${aLong.toFixed(2)} m/s²`, 2);
+        this.line(ctx, `yaw: ${yawRateDeg.toFixed(1)} °/s`, 3);
     }
 
     private line(ctx: CanvasRenderingContext2D, text: string, index: number): void {

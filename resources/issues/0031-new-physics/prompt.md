@@ -74,3 +74,34 @@ usa /prd-to-plan con il prd che trovi in @resources/issues/0031-new-physics/step
 Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
 Considera anche la struttura attuale del software
 ```
+
+```md
+/implement-plan `Phase 1: Rotazione end-to-end con imbardata cinematica (tracer della curva)` at @resources/issues/0031-new-physics/step01/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+Output:
+```md
+Phase 1 is implemented and verified at the automated level (build green, 84/84 unit tests green). Here's what I did.
+
+What I built — Phase 1: end-to-end rotation with kinematic yaw (curve tracer)
+
+Pure functions (vehicle-physics.service.ts) + colocated unit tests:
+- integrateBody(state, Fx, Fy, Mz, mass, Iz, dt) — one planar rigid-body step with the cross terms v̇_x = Fx/m + v_y·ω, v̇_y = Fy/m − v_x·ω, ω̇ = Mz/Iz; dt ≤ 0 leaves the state unchanged. New BodyMotion interface.
+- kinematicYawRate(vx, steerAngle, wheelbase) — bicycle formula ω = v_x·tan(δ)/L; zero at standstill/zero-steer, sign-flips in reverse, zero for non-positive wheelbase. (This is the function Phase 3 will reuse as the low-speed branch.)
+- 10 new tests cover acceleration, torque→yaw, both cross terms, dt≤0, and all yaw sign/zero cases.
+
+System (PhysicDriveUpdateSystem) — integrateLongitudinal → integrateMotion:
+- Longitudinal tracer unchanged in spirit (drive ± brake), with linear drag now expressed as a force −m·dragCoeff·v_x so the integrator is purely force-driven.
+- Yaw is kinematic (ω = v_x·tan(δ)/L, all speeds, Mz = 0). The lateral force is the kinematic centripetal term m·v_x·ω, which keeps velocity locked to heading (no slip yet) so the path genuinely curves with radius v/ω — this is what integrateBody's cross terms require to turn rather than spin-in-place.  
+  It's replaced by the emergent slip-driven tyre force in Phase 2.
+- heading rotates by ω·dt and re-normalizes; velBody/yawRate updated; actor.vel written in px; actor.pos never written. Source-agnostic and pedal/steer smoothing unchanged.
+
+HUD (PhysicsDebugHud) — added a yaw: … °/s line (height 76→98), alongside km/h, pedals and aLong.
+
+A note on one design point worth flagging: the plan text says "integrate with cross terms, no real forces." Literally, integrateBody with zero net force keeps world velocity constant — the body would spin while sliding straight, not curve. To get the "coherent finite radius" the acceptance requires while
+still genuinely exercising integrateBody, I added the kinematic centripetal force Fy = m·v_x·ω (a constraint force, not a per-wheel tyre force), documented as provisional. It produces a clean kinematic curve and is swapped for the emergent per-wheel Fy/Mz in Phase 2.
+
+Left for you (manual verification, per your workflow)
+```
