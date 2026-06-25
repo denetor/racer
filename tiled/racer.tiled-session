@@ -12,9 +12,9 @@
         },
         "track-playground.tmx": {
             "scale": 1,
-            "selectedLayer": 1,
+            "selectedLayer": 4,
             "viewCenter": {
-                "x": 872.5,
+                "x": 840.5,
                 "y": 1201
             }
         }

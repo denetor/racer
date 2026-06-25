@@ -88,7 +88,7 @@ export abstract class BaseVehicleActor extends Actor {
         }));
         this.graphics.use('idle');
 
-        // children actors: front and read axles
+        // children actors: front and rear axles
         const frontAxle = new Actor({
             name: 'frontAxle',
             width: this.frontAxleWidth,
