@@ -341,3 +341,23 @@ Verifica manuale (a te)
                                                                                                                                                                                                                                                                                                                
 main.ts è già su START_SCENE = 'physics' (riga 11), quindi puoi guidare e verificare subito: frenata forte → barre/Fz anteriori crescono (affondo), accelerazione → l'opposto, effetto che scala con cogHeight, nessuna vibrazione da fermo.
 ```
+
+```md
+/implement-plan `Phase 2: Trasferimento laterale (curva + frenata-in-curva)` at @resources/issues/0031-new-physics/step03/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+Cosa ho modificato (solo funzioni pure)                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                   
+Nessun cambiamento a system/HUD: la Fase 1 aveva già cablato bodyAccel.y, trackFrontMeters/trackRearMeters e le barre HUD leggono già load/loadStatic. La Fase 2 era quindi localizzata al service.                                                                                                              
+                                                                                                                                                                                                                                                                                                                   
+vehicle-physics.service.ts:                                                                                                                                                                                                                                                                                      
+  - Nuova lateralLoadTransfer(massAxle, ay, cogHeight, track) → ΔFz per ruota (m_axle·a_y·h/track), guard track ≤ 0.                                                                                                                                                                                               
+  - dynamicLoad esteso col termine laterale per asse: m_axleFront/Rear = mass · quota statica dell'asse / Σstatico, ciascun asse con la propria carreggiata. Segni: a_y>0 (verso +y/destra) → centro a destra, esterno = sinistra → sinistre +Δlat, destre −Δlat. Long. + lat. sommati, poi clamp ≥ 0.             
+                                                                                                                                                                                                                                                                                                                   
+Test (10 nuovi):                                                                                                                                                                                                                                                                                                 
+  - lateralLoadTransfer: valore/segno, scaling con cogHeight, track ≤ 0 → 0.                                                                                                                                                                                                                                       
+  - dynamicLoad (lateral): a_y>0 → sinistre guadagnano/destre perdono; per-asse (carreggiata più stretta → trasferimento maggiore); somma invariante pre-clamp; clamp ≥ 0 dell'interno; scaling con cogHeight; combinazione long.+lat. coerente (retro-esterno il più carico, antero-interno il meno).
+```

@@ -1,4 +1,4 @@
-import {bodyToWorld, clampToFrictionCircle, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
+import {bodyToWorld, clampToFrictionCircle, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -394,5 +394,77 @@ describe('dynamicLoad (longitudinal)', () => {
         const dLo = lo.rearLeftWheel - 2500;
         const dHi = hi.rearLeftWheel - 2500;
         expect(dHi).toBeCloseTo(2 * dLo);
+    });
+});
+
+describe('lateralLoadTransfer', () => {
+    it('computes the per-wheel transfer ΔFz = massAxle·a_y·h/track', () => {
+        expect(lateralLoadTransfer(500, 4, 0.5, 1.6)).toBeCloseTo(500 * 4 * 0.5 / 1.6);
+    });
+
+    it('is positive for a positive lateral acceleration', () => {
+        expect(lateralLoadTransfer(500, 4, 0.5, 1.6)).toBeGreaterThan(0);
+    });
+
+    it('scales linearly with the COG height', () => {
+        const lo = lateralLoadTransfer(500, 4, 0.5, 1.6);
+        const hi = lateralLoadTransfer(500, 4, 1.0, 1.6);
+        expect(hi).toBeCloseTo(2 * lo);
+    });
+
+    it('returns 0 for a non-positive track', () => {
+        expect(lateralLoadTransfer(500, 4, 0.5, 0)).toBe(0);
+    });
+});
+
+describe('dynamicLoad (lateral)', () => {
+    const symmetric: WheelLoads = {
+        frontLeftWheel: 2500,
+        frontRightWheel: 2500,
+        rearLeftWheel: 2500,
+        rearRightWheel: 2500,
+    };
+
+    it('loads the left and lightens the right under a positive lateral acceleration', () => {
+        // ay>0 -> turn centre to the right -> outside is the left -> left wheels gain.
+        const fz = dynamicLoad(symmetric, 1000, 0, 4, 0.5, 2.5, 1.6, 1.6);
+        expect(fz.frontLeftWheel).toBeGreaterThan(fz.frontRightWheel);
+        expect(fz.rearLeftWheel).toBeGreaterThan(fz.rearRightWheel);
+    });
+
+    it('transfers per axle: the axle with the narrower track transfers more', () => {
+        // Same static mass per axle, so the narrower front track gives the bigger lateral transfer.
+        const fz = dynamicLoad(symmetric, 1000, 0, 4, 0.5, 2.5, 1.6, 2.0);
+        const dFront = fz.frontLeftWheel - 2500;
+        const dRear = fz.rearLeftWheel - 2500;
+        expect(dFront).toBeGreaterThan(dRear);
+    });
+
+    it('conserves the total load before any clamp (pure lateral)', () => {
+        const fz = dynamicLoad(symmetric, 1000, 0, 4, 0.5, 2.5, 1.6, 1.6);
+        const sum = fz.frontLeftWheel + fz.frontRightWheel + fz.rearLeftWheel + fz.rearRightWheel;
+        expect(sum).toBeCloseTo(2500 * 4);
+    });
+
+    it('clamps the inner wheel to ≥ 0 when the lateral transfer exceeds the static load', () => {
+        const fz = dynamicLoad(symmetric, 1000, 0, 40, 0.5, 2.5, 1.6, 1.6);
+        expect(fz.frontRightWheel).toBe(0);
+        expect(fz.rearRightWheel).toBe(0);
+    });
+
+    it('scales the lateral transfer linearly with the COG height', () => {
+        const lo = dynamicLoad(symmetric, 1000, 0, 4, 0.5, 2.5, 1.6, 1.6);
+        const hi = dynamicLoad(symmetric, 1000, 0, 4, 1.0, 2.5, 1.6, 1.6);
+        const dLo = lo.frontLeftWheel - 2500;
+        const dHi = hi.frontLeftWheel - 2500;
+        expect(dHi).toBeCloseTo(2 * dLo);
+    });
+
+    it('combines longitudinal and lateral coherently (rear-outer most loaded, front-inner least)', () => {
+        // ax>0 (load rear) + ay>0 (load left): rear-left is the most loaded, front-right the least.
+        const fz = dynamicLoad(symmetric, 1000, 5, 4, 0.5, 2.5, 1.6, 1.6);
+        const loads = [fz.frontLeftWheel, fz.frontRightWheel, fz.rearLeftWheel, fz.rearRightWheel];
+        expect(fz.rearLeftWheel).toBe(Math.max(...loads));
+        expect(fz.frontRightWheel).toBe(Math.min(...loads));
     });
 });

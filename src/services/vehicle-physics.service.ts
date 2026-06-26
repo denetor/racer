@@ -146,31 +146,55 @@ export function longitudinalLoadTransfer(mass: number, ax: number, cogHeight: nu
 }
 
 /**
+ * Lateral load transfer (spec §3.4): the **per-wheel** vertical load (N) that shifts from the inner to
+ * the outer wheels of an axle under lateral acceleration. `ΔFz = massAxle · a_y · cogHeight / track`,
+ * with `massAxle` the mass carried by that axle (kg), `a_y` the body-frame lateral acceleration
+ * (m/s²), `cogHeight` the COG height (m) and `track` that axle's track width (m).
+ *
+ * Computed **per axle** (each axle uses its own track and its static mass share), so no roll-stiffness
+ * knob is needed. Unlike the longitudinal transfer this magnitude is **already per wheel**: one side
+ * gains `ΔFz`, the other loses it (the side is resolved by the caller from the sign of `a_y`). Returns
+ * 0 for a non-positive track. The COG itself does not move — only the load (spec §3.4).
+ */
+export function lateralLoadTransfer(massAxle: number, ay: number, cogHeight: number, track: number): number {
+    if (track <= 0) return 0;
+    return massAxle * ay * cogHeight / track;
+}
+
+/**
  * Dynamic per-wheel vertical load Fz (N): the static split (spec §3.3) plus load transfer (spec §3.4),
  * each wheel clamped to `≥ 0`. The centre of gravity stays **fixed** in the body; only the *load*
  * redistributes between the tyres under acceleration. This is the sole entry point used by the update
  * system, and its output feeds the friction circle (`μ·Fz`).
  *
- * **Longitudinal (Phase 1).** The axle-total transfer {@link longitudinalLoadTransfer} is split half
- * per wheel and signed by axle: under forward acceleration (`a_x > 0`) the front wheels lose `ΔL/2`
- * and the rear wheels gain `ΔL/2` (so braking loads the front — "dive"). The four signed transfers
- * sum to zero, so **before the clamp** the loads still sum to the total weight (conservation).
+ * **Longitudinal.** The axle-total transfer {@link longitudinalLoadTransfer} is split half per wheel
+ * and signed by axle: under forward acceleration (`a_x > 0`) the front wheels lose `ΔL/2` and the rear
+ * wheels gain `ΔL/2` (so braking loads the front — "dive").
  *
- * **Lateral.** Added in Phase 2 (per axle, from `ay` and the per-axle tracks `trackFront`/
- * `trackRear`); these parameters are currently inert.
+ * **Lateral.** Computed **per axle** ({@link lateralLoadTransfer}), each axle using its own track and
+ * its static mass share. `a_y > 0` (toward +y/right) puts the turn centre to the right, so the outside
+ * is the **left**: the left wheels gain `ΔFz`, the right wheels lose it.
  *
- * Each wheel is clamped to `≥ 0` (an unloaded wheel has zero grip). The clamped excess is **not**
- * redistributed (spec §3.4), so the sum may drop below the total weight when a wheel lifts.
+ * Both sets of signed transfers sum to zero, so **before the clamp** the loads still sum to the total
+ * weight (conservation). Each wheel is then clamped to `≥ 0` (an unloaded wheel has zero grip). The
+ * clamped excess is **not** redistributed (spec §3.4), so the sum may drop below the total weight when
+ * a wheel lifts.
  */
 export function dynamicLoad(staticLoads: WheelLoads, mass: number, ax: number, ay: number, cogHeight: number, L: number, trackFront: number, trackRear: number): WheelLoads {
     // Longitudinal: axle-total transfer, half to each wheel; front loses, rear gains under +a_x.
     const halfLong = longitudinalLoadTransfer(mass, ax, cogHeight, L) / 2;
-    // Lateral transfer (per axle) is added in Phase 2; ay/trackFront/trackRear unused for now.
+    // Lateral: per axle, from the axle's own track and static mass share. ay>0 (toward +y/right) puts
+    // the turn centre to the right, so the outside is the left -> left wheels gain, right wheels lose.
+    const totalStatic = staticLoads.frontLeftWheel + staticLoads.frontRightWheel + staticLoads.rearLeftWheel + staticLoads.rearRightWheel;
+    const massFront = totalStatic > 0 ? mass * (staticLoads.frontLeftWheel + staticLoads.frontRightWheel) / totalStatic : mass / 2;
+    const massRear = totalStatic > 0 ? mass * (staticLoads.rearLeftWheel + staticLoads.rearRightWheel) / totalStatic : mass / 2;
+    const latFront = lateralLoadTransfer(massFront, ay, cogHeight, trackFront);
+    const latRear = lateralLoadTransfer(massRear, ay, cogHeight, trackRear);
     return {
-        frontLeftWheel: Math.max(0, staticLoads.frontLeftWheel - halfLong),
-        frontRightWheel: Math.max(0, staticLoads.frontRightWheel - halfLong),
-        rearLeftWheel: Math.max(0, staticLoads.rearLeftWheel + halfLong),
-        rearRightWheel: Math.max(0, staticLoads.rearRightWheel + halfLong),
+        frontLeftWheel: Math.max(0, staticLoads.frontLeftWheel - halfLong + latFront),
+        frontRightWheel: Math.max(0, staticLoads.frontRightWheel - halfLong - latFront),
+        rearLeftWheel: Math.max(0, staticLoads.rearLeftWheel + halfLong + latRear),
+        rearRightWheel: Math.max(0, staticLoads.rearRightWheel + halfLong - latRear),
     };
 }
 
