@@ -2,18 +2,21 @@ import {Canvas, Engine, ScreenElement} from "excalibur";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 
 const HUD_WIDTH = 240;
-const HUD_HEIGHT = 270;
+const HUD_HEIGHT = 310;
 const LINE_HEIGHT = 22;
 // Columns of the per-wheel 2x2 grid (FL/FR over RL/RR), mirroring the car seen from above.
 const COL_LEFT_X = 30;
 const COL_RIGHT_X = 140;
+const COLOR_NORMAL = 'rgba(255, 255, 0, 1)';
+const COLOR_SATURATED = 'rgba(255, 80, 80, 1)';
 
 /**
  * Minimal debug overlay for the physics dev scene. It grows step by step; it now shows the vehicle
  * speed (km/h) with the gear, the smoothed gas/brake pedals, the longitudinal acceleration (m/s²),
  * the yaw rate (°/s) and the average front/rear slip angle (°), all derived from the actor's SI
- * state. Below that a 2x2 grid (FL/FR over RL/RR) shows the live per-wheel surface grip μ and static
- * load Fz (N), so the per-wheel surface sensing and load split can be verified while driving.
+ * state. Below that a 2x2 grid (FL/FR over RL/RR) shows the live per-wheel surface grip μ, static
+ * load Fz (N) and slip angle (°), with a wheel's cell turned **red** when its tyre saturates the
+ * friction circle — so sensing, load split and sliding can be verified at a glance while driving.
  */
 export class PhysicsDebugHud extends ScreenElement {
     private vehicle: PhysicVehicleActor | null = null;
@@ -51,7 +54,7 @@ export class PhysicsDebugHud extends ScreenElement {
         ctx.clearRect(0, 0, HUD_WIDTH, HUD_HEIGHT);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, HUD_WIDTH, HUD_HEIGHT);
-        ctx.fillStyle = 'rgba(255, 255, 0, 1)';
+        ctx.fillStyle = COLOR_NORMAL;
         ctx.font = '16px monospace';
         ctx.textBaseline = 'middle';
 
@@ -61,21 +64,24 @@ export class PhysicsDebugHud extends ScreenElement {
         this.line(ctx, `yaw: ${yawRateDeg.toFixed(1)} °/s`, 3);
         this.line(ctx, `slip f/r: ${slipFrontDeg.toFixed(1)}° / ${slipRearDeg.toFixed(1)}°`, 4);
 
-        // Per-wheel grid, mirroring the car: FL/FR on top, RL/RR below; each shows grip μ and load Fz.
-        const grip = (name: string): string => (v?.wheelStates.get(name)?.gripSurface ?? 0).toFixed(2);
-        const load = (name: string): string => `${Math.round(v?.wheelStates.get(name)?.load ?? 0)}N`;
-        this.cell(ctx, 'FL', COL_LEFT_X, 5);
-        this.cell(ctx, 'FR', COL_RIGHT_X, 5);
-        this.cell(ctx, `μ ${grip('frontLeftWheel')}`, COL_LEFT_X, 6);
-        this.cell(ctx, `μ ${grip('frontRightWheel')}`, COL_RIGHT_X, 6);
-        this.cell(ctx, load('frontLeftWheel'), COL_LEFT_X, 7);
-        this.cell(ctx, load('frontRightWheel'), COL_RIGHT_X, 7);
-        this.cell(ctx, 'RL', COL_LEFT_X, 8);
-        this.cell(ctx, 'RR', COL_RIGHT_X, 8);
-        this.cell(ctx, `μ ${grip('rearLeftWheel')}`, COL_LEFT_X, 9);
-        this.cell(ctx, `μ ${grip('rearRightWheel')}`, COL_RIGHT_X, 9);
-        this.cell(ctx, load('rearLeftWheel'), COL_LEFT_X, 10);
-        this.cell(ctx, load('rearRightWheel'), COL_RIGHT_X, 10);
+        // Per-wheel grid, mirroring the car: FL/FR on top, RL/RR below. Each cell shows grip μ, load
+        // Fz and slip (°), turning red when the tyre saturates the friction circle.
+        this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 5);
+        this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 5);
+        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 9);
+        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 9);
+        ctx.fillStyle = COLOR_NORMAL;
+    }
+
+    /** Draws one wheel block (label, μ, Fz, slip) at a column, in red when the tyre is saturated. */
+    private wheelCell(ctx: CanvasRenderingContext2D, vehicle: PhysicVehicleActor | null, name: string, label: string, x: number, topRow: number): void {
+        const ws = vehicle?.wheelStates.get(name);
+        ctx.fillStyle = ws?.saturated ? COLOR_SATURATED : COLOR_NORMAL;
+        const slipDeg = (ws?.slipAngle ?? 0) * 180 / Math.PI;
+        this.cell(ctx, label, x, topRow);
+        this.cell(ctx, `μ ${(ws?.gripSurface ?? 0).toFixed(2)}`, x, topRow + 1);
+        this.cell(ctx, `${Math.round(ws?.load ?? 0)}N`, x, topRow + 2);
+        this.cell(ctx, `${slipDeg.toFixed(1)}°`, x, topRow + 3);
     }
 
     private line(ctx: CanvasRenderingContext2D, text: string, index: number): void {

@@ -166,6 +166,33 @@ export function integrateBody(state: BodyMotion, fx: number, fy: number, mz: num
     };
 }
 
+/** A tyre force after the friction-circle clamp, plus whether the demanded force exceeded the circle. */
+export interface ClampedForce {
+    fx: number;         // longitudinal force after the clamp (N), body/wheel frame
+    fy: number;         // lateral force after the clamp (N)
+    saturated: boolean; // true when the demanded force exceeded the circle radius (the tyre is sliding)
+}
+
+/**
+ * Friction circle (spec §3.5): a tyre can produce at most a force of magnitude `μ·Fz`. If the
+ * demanded force `(fx, fy)` is inside the circle it passes through unchanged; if it exceeds the
+ * radius it is scaled down to the radius **keeping its direction**, and `saturated` is raised (the
+ * tyre slides). Written in the general combined `fx`/`fy` form for reuse at Step 4; at Step 2 it is
+ * called with `fx = 0` per wheel, i.e. it just clamps `|fy| ≤ μ·Fz`.
+ *
+ * Edge cases: `Fz = 0` (or `μ = 0`) gives a zero radius, so any non-zero demand collapses to zero
+ * force and saturates; a zero demand stays zero and is not saturated.
+ */
+export function clampToFrictionCircle(fx: number, fy: number, mu: number, fz: number): ClampedForce {
+    const maxForce = Math.max(0, mu * fz);
+    const magnitude = Math.hypot(fx, fy);
+    if (magnitude <= maxForce || magnitude === 0) {
+        return {fx, fy, saturated: false};
+    }
+    const scale = maxForce / magnitude;
+    return {fx: fx * scale, fy: fy * scale, saturated: true};
+}
+
 /** Result of the low-speed blend: how much of the dynamic tyre model to apply, and the kinematic fallback yaw. */
 export interface LowSpeedBlend {
     /** Scale in [0, 1] for the dynamic tyre forces: 0 at standstill (fully kinematic), 1 at/above the threshold. */

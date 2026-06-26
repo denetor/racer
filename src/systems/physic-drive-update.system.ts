@@ -1,9 +1,9 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {bodyToWorld, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
+import {bodyToWorld, clampToFrictionCircle, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
-import {G, LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
+import {DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -14,11 +14,12 @@ import {G, LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
  *
  * The car turns from **real per-wheel tyre forces**: each wheel sees its own velocity (it sits at a
  * different point of the rotating body), hence its own slip angle, hence a linear lateral force
- * `Fy = −Cα·α` (no friction circle yet). Those forces sum into the net `Fx`/`Fy` and a yaw torque
- * `Mz`, so the yaw rate now **emerges** from the geometry instead of being scripted — `yawRate` is
- * genuinely independent of the velocity direction. The longitudinal propulsion stays the Step 0
- * "tracer" at the COG (no yaw torque from it). The actuation smoothing (shared with human/AI
- * sources) lives here, not in the input system.
+ * `Fy = −Cα·α`, **clamped per wheel to the friction circle `μ·Fz`** (μ = the live surface grip, Fz =
+ * the static load). Those forces sum into the net `Fx`/`Fy` and a yaw torque `Mz`, so the yaw rate
+ * **emerges** from the geometry — and the *asymmetric* saturation (front vs rear, grass side vs
+ * tarmac side) makes the car slide, under/oversteer and "pull" to one side without scripting it. The
+ * longitudinal propulsion stays the Step 0 "tracer" at the COG (no yaw torque from it, not clamped).
+ * The actuation smoothing (shared with human/AI sources) lives here, not in the input system.
  */
 export class PhysicDriveUpdateSystem extends System {
     public priority = SystemPriority.Average;
@@ -88,10 +89,14 @@ export class PhysicDriveUpdateSystem extends System {
      * Longitudinal tracer at the COG (Step 0, no yaw torque): throttle drive (signed by reverse
      * gear) plus a brake force opposing motion, with linear drag as the force `−m·dragCoeff·v_x` so
      * the integrator stays purely force-driven. Per wheel: take its velocity (it rotates with the
-     * body), its slip angle (front wheels subtract the steering `δ`, rear wheels `0`), and the
-     * linear lateral force `Fy = −Cα·α`. The front-wheel force is **rotated by `δ`** back into the
-     * body frame before summing, so even at wide steer the curve stays faithful. Summing the forces
-     * gives the tyre `Fx`/`Fy`; summing their moments `r_i_x·F_i_y − r_i_y·F_i_x` gives the yaw torque.
+     * body), its slip angle (front wheels subtract the steering `δ`, rear wheels `0`), the linear
+     * lateral force `Fy = −Cα·α`, and **clamp it to the friction circle `μ·Fz`** (the live surface
+     * grip and the static load) — per wheel, before the sum, recording `slipAngle`/`saturated` on the
+     * `WheelState`. The clamped front-wheel force is **rotated by `δ`** back into the body frame
+     * before summing, so even at wide steer the curve stays faithful. Summing the forces gives the
+     * tyre `Fx`/`Fy`; summing their moments `r_i_x·F_i_y − r_i_y·F_i_x` gives the yaw torque. The
+     * clamp is the physical limit (before the sum, so asymmetric saturation yaws the car); the
+     * low-speed blend below is the numerical stabiliser (after).
      *
      * Below {@link LOW_SPEED_BLEND_THRESHOLD} the slip angles are `atan2` noise, so the dynamic tyre
      * forces are scaled by `k` (→ 0 at standstill) and the yaw rate blends toward the kinematic
@@ -115,8 +120,7 @@ export class PhysicDriveUpdateSystem extends System {
 
         // Per-wheel linear tyre forces: the curve emerges from each wheel's slip angle.
         const arms = vehicle.wheelArmsBody;
-        // Static load Fz per wheel (from the total mass and geometry). Computed and stored every frame,
-        // not yet consumed by the forces (the friction circle is Phase 3): driving is unchanged.
+        // Static load Fz per wheel (from the total mass and geometry), the friction-circle radius input.
         const loads = staticLoad(vehicle.totalMass, G, arms);
         const wheels: {name: keyof WheelLoads; arm: typeof arms.frontLeftWheel; isFront: boolean}[] = [
             {name: 'frontLeftWheel', arm: arms.frontLeftWheel, isFront: true},
@@ -131,15 +135,25 @@ export class PhysicDriveUpdateSystem extends System {
         let slipRearSum = 0;
         for (const {name, arm, isFront} of wheels) {
             const wheelState = vehicle.wheelStates.get(name);
-            if (wheelState) wheelState.load = loads[name];
+            const fz = loads[name];
+            const mu = wheelState?.gripSurface ?? DEFAULT_SURFACE_GRIP;
             const delta = isFront ? vehicle.steeringAngle : 0;
             const cAlpha = isFront ? vehicle.corneringStiffnessFront : vehicle.corneringStiffnessRear;
             const wv = wheelVelocity(vx, vy, omega, arm);
             const alpha = slipAngle(wv.x, wv.y, delta);
-            const fLat = lateralForceLinear(alpha, cAlpha); // lateral force in the wheel frame
-            // Rotate the wheel-frame force (0, fLat) by δ into the body frame (rear: δ = 0 -> no-op).
-            const fwx = -fLat * Math.sin(delta);
-            const fwy = fLat * Math.cos(delta);
+            const fLat = lateralForceLinear(alpha, cAlpha); // linear lateral force in the wheel frame
+            // Friction circle, **per wheel, before the sum** (Fx = 0 at Step 2): the asymmetric
+            // saturation (front vs rear, grass side vs tarmac side) is what produces the yaw torque
+            // that makes the car slide and "pull". Clamping the net force would erase it.
+            const clamped = clampToFrictionCircle(0, fLat, mu, fz);
+            if (wheelState) {
+                wheelState.load = fz;
+                wheelState.slipAngle = alpha;
+                wheelState.saturated = clamped.saturated;
+            }
+            // Rotate the clamped wheel-frame force by δ into the body frame (rear: δ = 0 -> no-op).
+            const fwx = clamped.fx * Math.cos(delta) - clamped.fy * Math.sin(delta);
+            const fwy = clamped.fx * Math.sin(delta) + clamped.fy * Math.cos(delta);
             fxTyre += fwx;
             fyTyre += fwy;
             mzTyre += arm.x * fwy - arm.y * fwx;

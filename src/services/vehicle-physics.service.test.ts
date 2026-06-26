@@ -1,4 +1,4 @@
-import {bodyToWorld, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, worldToBody} from './vehicle-physics.service';
+import {bodyToWorld, clampToFrictionCircle, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -126,6 +126,46 @@ describe('staticLoad', () => {
         const loads = staticLoad(1000, 9.81, rightLeaning);
         expect(loads.frontRightWheel).toBeGreaterThan(loads.frontLeftWheel);
         expect(loads.rearRightWheel).toBeGreaterThan(loads.rearLeftWheel);
+    });
+});
+
+describe('clampToFrictionCircle', () => {
+    it('leaves a force inside the circle unchanged and unsaturated', () => {
+        // demand |F| = 1000 N, radius μ·Fz = 1.0·3000 = 3000 N
+        const c = clampToFrictionCircle(0, 1000, 1.0, 3000);
+        expect(c.fx).toBeCloseTo(0);
+        expect(c.fy).toBeCloseTo(1000);
+        expect(c.saturated).toBe(false);
+    });
+
+    it('scales a force outside the circle to the radius, preserving direction, and saturates', () => {
+        // Step 2 case (Fx = 0): demand |Fy| = 5000 N, radius = 0.5·4000 = 2000 N -> clamp to 2000.
+        const c = clampToFrictionCircle(0, 5000, 0.5, 4000);
+        expect(c.fx).toBeCloseTo(0);
+        expect(c.fy).toBeCloseTo(2000);
+        expect(c.saturated).toBe(true);
+    });
+
+    it('preserves the direction of a combined fx/fy force when clamping', () => {
+        // demand (3000, 4000) -> |F| = 5000, radius = 1.0·2500 = 2500 -> scale 0.5
+        const c = clampToFrictionCircle(3000, 4000, 1.0, 2500);
+        expect(Math.hypot(c.fx, c.fy)).toBeCloseTo(2500);
+        expect(c.fy / c.fx).toBeCloseTo(4000 / 3000); // same direction
+        expect(c.saturated).toBe(true);
+    });
+
+    it('collapses any non-zero demand to zero force when Fz = 0 (and saturates)', () => {
+        const c = clampToFrictionCircle(0, 1234, 1.0, 0);
+        expect(c.fx).toBeCloseTo(0);
+        expect(c.fy).toBeCloseTo(0);
+        expect(c.saturated).toBe(true);
+    });
+
+    it('leaves a zero demand at zero force, unsaturated, even with zero radius', () => {
+        const c = clampToFrictionCircle(0, 0, 1.0, 0);
+        expect(c.fx).toBe(0);
+        expect(c.fy).toBe(0);
+        expect(c.saturated).toBe(false);
     });
 });
 
