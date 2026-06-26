@@ -219,4 +219,38 @@ Considera anche la struttura attuale del software
 
 Output:
 ```md
+1. src/services/vehicle-physics.service.ts (pure module)                                                                                                                                                                                                                                                         
+- Moved WheelArms here (from the actor) and added WheelLoads, so the new pure function is self-contained.                                                                                                                                                                                                        
+- Added staticLoad(totalMass, g, arms) → four Fz (N). Longitudinal split (front = b/L, rear = a/L) then lateral split per axle, derived entirely from the COG-relative wheel arms — so a COG decentred both longitudinally and laterally works for free. cogHeight does not enter (that's load transfer, Step 3).
+Each Fz clamped ≥ 0; the four sum to totalMass·g.                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                               
+2. src/actors/physic-vehicle.actor.ts — now imports WheelArms from the service instead of redefining it (no circular import; the actor already imports from the service).                                                                                                                                        
+                                                                                                                                                                                                                                                                                                               
+3. src/systems/physic-drive-update.system.ts — each frame computes staticLoad(vehicle.totalMass, G, arms) (totalMass = chassis + fuel, the single source of truth) and writes load onto each WheelState. The per-wheel loop now carries the wheel name (typed keyof WheelLoads), ready for Phase 3's per-wheel   
+slip/saturation. Loads are stored but not consumed — the friction circle is Phase 3, so driving is identical to Phase 1.                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                               
+4. src/ui/physics-debug-hud.actor.ts — the 2×2 grid now shows Fz (N) under the grip μ for each wheel; HUD height grown to fit.                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                               
+5. src/services/vehicle-physics.service.test.ts — 4 new staticLoad tests: centred COG → four equal quarters (totalMass·g/4); COG forward → front axle more loaded (and exactly 0.6·W for the chosen geometry); four Fz sum to totalMass·g; lateral-decentred COG loads the leaning side more.                    
+                                                                                                                                                                                                                                                                                                               
+Verification                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                               
+- npm run build — green                                                                                                                                                                                                                                                                                          
+- npm run test:unit — 101 passed (4 new)                                                                                                                                                                                                                                                                         
+- Production playground scene untouched → Playwright baseline unaffected.                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                               
+Manual check (you drive, START_SCENE='physics')                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                               
+Confirm the HUD 2×2 grid shows coherent Fz per wheel (≈ equal quarters at the default centred COG, summing to ~`totalMass·9.81 ≈ 10453Ntotal =mass 1000 + fuel 60` × 9.81), and that driving feel is unchanged vs Phase 1. 
+```
+
+
+```md
+/implement-plan `` at @resources/issues/0031-new-physics/step02/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+Output:
+```md
 ```

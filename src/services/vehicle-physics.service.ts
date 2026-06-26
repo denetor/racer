@@ -14,6 +14,22 @@ export interface Vec2 {
     y: number;
 }
 
+/** Body-frame (forward = +x, lateral = +y) arm of each wheel relative to the centre of gravity, in metres. */
+export interface WheelArms {
+    frontLeftWheel: Vec2;
+    frontRightWheel: Vec2;
+    rearLeftWheel: Vec2;
+    rearRightWheel: Vec2;
+}
+
+/** Per-wheel quantity keyed by the four wheel names (e.g. static load Fz in N). */
+export interface WheelLoads {
+    frontLeftWheel: number;
+    frontRightWheel: number;
+    rearLeftWheel: number;
+    rearRightWheel: number;
+}
+
 /** Planar rigid-body motion in the body frame: longitudinal/lateral velocity (m/s) and yaw rate (rad/s). */
 export interface BodyMotion {
     vx: number;     // forward velocity (m/s)
@@ -71,6 +87,46 @@ export function worldToBody(v: Vec2, theta: number): Vec2 {
  */
 export function getTotalMass(mass: number, fuelMass: number): number {
     return mass + fuelMass;
+}
+
+/**
+ * Static load Fz (N) on each of the four wheels (spec §3.3). Splits the total weight `totalMass·g`
+ * **longitudinally** (front axle gets `b/L`, rear gets `a/L`, with `a`/`b` the COG→axle distances and
+ * `L = a + b` the wheelbase) and then **laterally** within each axle (from the wheels' lateral
+ * offsets, so a side-decentred COG loads its side more).
+ *
+ * The geometry comes entirely from the wheel `arms` (body-frame metres, already relative to the COG),
+ * so a COG decentred both longitudinally and laterally is supported for free. `cogHeight` does **not**
+ * enter: this is the *static* split — load transfer under acceleration/cornering is a later step. With
+ * a centred COG the result is four equal quarters (`totalMass·g/4`); the four Fz always sum to
+ * `totalMass·g`. Each Fz is clamped to `≥ 0` (trivial without load transfer).
+ */
+export function staticLoad(totalMass: number, g: number, arms: WheelArms): WheelLoads {
+    const weight = totalMass * g;
+    // Longitudinal split: a = COG->front axle (>0), b = COG->rear axle (>0); front carries b/L.
+    const a = arms.frontLeftWheel.x;
+    const b = -arms.rearLeftWheel.x;
+    const L = a + b;
+    const frontAxle = L > 0 ? weight * (b / L) : weight / 2;
+    const rearAxle = L > 0 ? weight * (a / L) : weight / 2;
+    // Lateral split per axle: a wheel's load fraction is the COG's distance to the *opposite* wheel
+    // over the track (right arm.y > 0, left arm.y < 0).
+    const split = (axleLoad: number, leftArm: Vec2, rightArm: Vec2): {left: number; right: number} => {
+        const track = rightArm.y - leftArm.y;
+        if (track <= 0) return {left: axleLoad / 2, right: axleLoad / 2};
+        return {
+            left: Math.max(0, axleLoad * (rightArm.y / track)),
+            right: Math.max(0, axleLoad * (-leftArm.y / track)),
+        };
+    };
+    const front = split(frontAxle, arms.frontLeftWheel, arms.frontRightWheel);
+    const rear = split(rearAxle, arms.rearLeftWheel, arms.rearRightWheel);
+    return {
+        frontLeftWheel: front.left,
+        frontRightWheel: front.right,
+        rearLeftWheel: rear.left,
+        rearRightWheel: rear.right,
+    };
 }
 
 /**

@@ -1,18 +1,10 @@
 import {CollisionType, Engine, vec, Vector} from "excalibur";
 import {BaseVehicleActor} from "@/actors/base-vehicle.actor";
 import {WheelState} from "@/models/wheel-state.model";
-import {getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2} from "@/services/vehicle-physics.service";
+import {getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2, WheelArms} from "@/services/vehicle-physics.service";
 
 /** Driven axle layout: front-, rear- or all-wheel drive. */
 export type Drivetrain = 'fwd' | 'rwd' | 'awd';
-
-/** Body-frame (forward = +x, lateral = +y) arm of each wheel relative to the centre of gravity, in metres. */
-export interface WheelArms {
-    frontLeftWheel: Vec2;
-    frontRightWheel: Vec2;
-    rearLeftWheel: Vec2;
-    rearRightWheel: Vec2;
-}
 
 /**
  * Force-based vehicle. Shares the visual setup with {@link BaseVehicleActor} and adds the planar

@@ -1,9 +1,9 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {bodyToWorld, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, wheelVelocity} from "@/services/vehicle-physics.service";
+import {bodyToWorld, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
-import {LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
+import {G, LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -115,18 +115,23 @@ export class PhysicDriveUpdateSystem extends System {
 
         // Per-wheel linear tyre forces: the curve emerges from each wheel's slip angle.
         const arms = vehicle.wheelArmsBody;
-        const wheels = [
-            {arm: arms.frontLeftWheel, isFront: true},
-            {arm: arms.frontRightWheel, isFront: true},
-            {arm: arms.rearLeftWheel, isFront: false},
-            {arm: arms.rearRightWheel, isFront: false},
+        // Static load Fz per wheel (from the total mass and geometry). Computed and stored every frame,
+        // not yet consumed by the forces (the friction circle is Phase 3): driving is unchanged.
+        const loads = staticLoad(vehicle.totalMass, G, arms);
+        const wheels: {name: keyof WheelLoads; arm: typeof arms.frontLeftWheel; isFront: boolean}[] = [
+            {name: 'frontLeftWheel', arm: arms.frontLeftWheel, isFront: true},
+            {name: 'frontRightWheel', arm: arms.frontRightWheel, isFront: true},
+            {name: 'rearLeftWheel', arm: arms.rearLeftWheel, isFront: false},
+            {name: 'rearRightWheel', arm: arms.rearRightWheel, isFront: false},
         ];
         let fxTyre = 0;
         let fyTyre = 0;
         let mzTyre = 0;
         let slipFrontSum = 0;
         let slipRearSum = 0;
-        for (const {arm, isFront} of wheels) {
+        for (const {name, arm, isFront} of wheels) {
+            const wheelState = vehicle.wheelStates.get(name);
+            if (wheelState) wheelState.load = loads[name];
             const delta = isFront ? vehicle.steeringAngle : 0;
             const cAlpha = isFront ? vehicle.corneringStiffnessFront : vehicle.corneringStiffnessRear;
             const wv = wheelVelocity(vx, vy, omega, arm);

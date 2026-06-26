@@ -1,4 +1,4 @@
-import {bodyToWorld, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, lowSpeedKinematicBlend, pxPerMeter, slipAngle, wheelVelocity, worldToBody} from './vehicle-physics.service';
+import {bodyToWorld, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -74,6 +74,58 @@ describe('getTotalMass', () => {
 
     it('equals the chassis mass with an empty tank', () => {
         expect(getTotalMass(1000, 0)).toBe(1000);
+    });
+});
+
+describe('staticLoad', () => {
+    // Symmetric layout: front axle 1 m ahead of the COG, rear 1.5 m behind, 1.6 m track on both axles.
+    const centredArms: WheelArms = {
+        frontLeftWheel: {x: 1.0, y: -0.8},
+        frontRightWheel: {x: 1.0, y: 0.8},
+        rearLeftWheel: {x: -1.5, y: -0.8},
+        rearRightWheel: {x: -1.5, y: 0.8},
+    };
+
+    it('splits a centred COG into four equal quarters (totalMass·g/4)', () => {
+        const loads = staticLoad(1000, 9.81, {
+            frontLeftWheel: {x: 1.0, y: -0.8},
+            frontRightWheel: {x: 1.0, y: 0.8},
+            rearLeftWheel: {x: -1.0, y: -0.8},
+            rearRightWheel: {x: -1.0, y: 0.8},
+        });
+        const quarter = 1000 * 9.81 / 4;
+        expect(loads.frontLeftWheel).toBeCloseTo(quarter);
+        expect(loads.frontRightWheel).toBeCloseTo(quarter);
+        expect(loads.rearLeftWheel).toBeCloseTo(quarter);
+        expect(loads.rearRightWheel).toBeCloseTo(quarter);
+    });
+
+    it('loads the front axle more when the COG sits forward (front arm closer than rear)', () => {
+        // a = 1.0 (COG->front), b = 1.5 (COG->rear): front carries b/L = 1.5/2.5 = 60% of the weight.
+        const loads = staticLoad(1000, 9.81, centredArms);
+        const frontAxle = loads.frontLeftWheel + loads.frontRightWheel;
+        const rearAxle = loads.rearLeftWheel + loads.rearRightWheel;
+        expect(frontAxle).toBeGreaterThan(rearAxle);
+        expect(frontAxle).toBeCloseTo(1000 * 9.81 * 0.6);
+    });
+
+    it('keeps the four Fz summing to the total weight', () => {
+        const loads = staticLoad(1000, 9.81, centredArms);
+        const sum = loads.frontLeftWheel + loads.frontRightWheel + loads.rearLeftWheel + loads.rearRightWheel;
+        expect(sum).toBeCloseTo(1000 * 9.81);
+    });
+
+    it('loads the side the COG leans toward (decentred lateral offset)', () => {
+        // COG shifted toward +y (right): right arms come closer (smaller +y), so the right wheels carry more.
+        const rightLeaning: WheelArms = {
+            frontLeftWheel: {x: 1.0, y: -1.0},
+            frontRightWheel: {x: 1.0, y: 0.6},
+            rearLeftWheel: {x: -1.0, y: -1.0},
+            rearRightWheel: {x: -1.0, y: 0.6},
+        };
+        const loads = staticLoad(1000, 9.81, rightLeaning);
+        expect(loads.frontRightWheel).toBeGreaterThan(loads.frontLeftWheel);
+        expect(loads.rearRightWheel).toBeGreaterThan(loads.rearLeftWheel);
     });
 });
 
