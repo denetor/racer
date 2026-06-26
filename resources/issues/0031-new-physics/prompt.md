@@ -178,3 +178,45 @@ usa /prd-to-plan con il prd che trovi in @resources/issues/0031-new-physics/step
 Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
 Considera anche la struttura attuale del software
 ```
+
+
+```md
+/implement-plan `Phase 1: Grip per-ruota reale (rilevazione superficie live)` at @resources/issues/0031-new-physics/step02/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+Output:
+```md
+Phase 1 — Grip per-ruota reale (rilevazione superficie live)                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                   
+1. src/constants/physics.constants.ts — added DEFAULT_SURFACE_GRIP = 1.0 (fallback μ for a wheel off every surface; no magic numbers in systems).                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                               
+2. src/models/wheel-state.model.ts (new) — WheelState for the force-based path only: gripSurface (μ), load (Fz), slipAngle, saturated, and the surfaces[] stack. Parallel to the legacy WheelFactor, which is untouched.                                                                                         
+                                                                                                                                                                                                                                                                                                               
+3. src/actors/physic-vehicle.actor.ts — added wheelStates: Map<string, WheelState> (4 wheel keys) and an onInitialize override that, after super, sets the four wheel child colliders to CollisionType.Passive. BaseVehicleActor/VehicleActor are untouched.                                                     
+                                                                                                                                                                                                                                                                                                               
+4. src/services/surfaces.service.ts — collisionstart now branches on instanceof PhysicVehicleActor (push surface on the wheel's stack → recompute grip) vs VehicleActor (legacy wheelFactors, inert for the new actor). Added a symmetric collisionend (remove surface from stack → recompute). Resolution is    
+"last-wins" via resolveGrip, falling back to DEFAULT_SURFACE_GRIP. The wheel-name guard is shared via WHEEL_NAMES.                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                               
+5. src/ui/physics-debug-hud.actor.ts — added a 2×2 grid (FL/FR over RL/RR) showing live per-wheel grip μ, so surface sensing is verifiable end-to-end. HUD height grew to fit.                                                                                                                                   
+                                                                                                                                                                                                                                                                                                               
+No forces changed — grip is sensed and displayed but not yet consumed by physics, so the car drives exactly as in Step 1.                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                               
+Verification                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                               
+- npm run build — green                                                                                                                                                                                                                                                                                          
+- npm run test:unit — 97 passed (unchanged; Phase 1 adds no pure functions — staticLoad/clampToFrictionCircle come in Phases 2–3)                                                                                                                                                                                
+ 
+```
+
+
+```md
+/implement-plan `Phase 2: Carico statico per-ruota ('staticLoad') + HUD 'Fz'` at @resources/issues/0031-new-physics/step02/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+Output:
+```md
+```

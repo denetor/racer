@@ -1,7 +1,12 @@
 import {PluginObject, TiledResource} from "@excaliburjs/plugin-tiled";
 import {SurfaceActor} from "@/actors/surface.actor";
 import {VehicleActor} from "@/actors/vehicle.actor";
+import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 import {WheelFactor} from "@/models/wheel-factor.model";
+import {WheelState} from "@/models/wheel-state.model";
+import {DEFAULT_SURFACE_GRIP} from "@/constants/physics.constants";
+
+const WHEEL_NAMES = ['frontRightWheel', 'frontLeftWheel', 'rearRightWheel', 'rearLeftWheel'];
 
 export class SurfacesService {
 
@@ -46,17 +51,51 @@ export class SurfacesService {
                     default:
                 }
                 surfaceActor.on('collisionstart', (evt) => {
-                    if (evt.other && evt.other && evt.other.owner && evt.other.owner.parent && ['frontRightWheel', 'frontLeftWheel', 'rearRightWheel', 'rearLeftWheel'].includes(evt.other.owner.name)) {
-                        // console.log(`${evt.other.owner.name} entering ${surfaceActor.name}`);
-                        const vehicle: VehicleActor = evt.other.owner.parent as VehicleActor;
-                        const wheelFactor: WheelFactor = vehicle.wheelFactors.get(evt.other.owner.name) || new WheelFactor();
+                    const owner = evt?.other?.owner;
+                    if (!owner || !owner.parent || !WHEEL_NAMES.includes(owner.name)) return;
+                    const vehicle = owner.parent;
+                    if (vehicle instanceof PhysicVehicleActor) {
+                        // New force-based path: push the surface on the wheel's stack and recompute grip.
+                        const state: WheelState | undefined = vehicle.wheelStates.get(owner.name);
+                        if (state) {
+                            state.surfaces.push(surfaceActor);
+                            SurfacesService.resolveGrip(state);
+                        }
+                    } else if (vehicle instanceof VehicleActor) {
+                        // Legacy kinematic path: update the shared WheelFactor (inert for the new actor).
+                        const wheelFactor: WheelFactor = vehicle.wheelFactors.get(owner.name) || new WheelFactor();
                         wheelFactor.grip = surfaceActor.gripFactor;
                         wheelFactor.drag = surfaceActor.dragFactor;
                         wheelFactor.power = surfaceActor.powerFactor;
                     }
                 });
+                surfaceActor.on('collisionend', (evt) => {
+                    const owner = evt?.other?.owner;
+                    if (!owner || !owner.parent || !WHEEL_NAMES.includes(owner.name)) return;
+                    const vehicle = owner.parent;
+                    if (vehicle instanceof PhysicVehicleActor) {
+                        // Remove this surface from the wheel's stack and recompute grip ("last-wins").
+                        const state: WheelState | undefined = vehicle.wheelStates.get(owner.name);
+                        if (state) {
+                            const idx = state.surfaces.lastIndexOf(surfaceActor);
+                            if (idx !== -1) state.surfaces.splice(idx, 1);
+                            SurfacesService.resolveGrip(state);
+                        }
+                    }
+                });
             }
         }
+    }
+
+
+    /**
+     * Resolves the wheel's current grip from its surface stack: the most-recently-entered surface
+     * still present wins, or {@link DEFAULT_SURFACE_GRIP} when the wheel is off every surface. Robust
+     * to overlapping border polygons and to the order of collisionstart/collisionend events.
+     */
+    private static resolveGrip(state: WheelState): void {
+        const top = state.surfaces[state.surfaces.length - 1];
+        state.gripSurface = top ? top.gripFactor : DEFAULT_SURFACE_GRIP;
     }
 
 

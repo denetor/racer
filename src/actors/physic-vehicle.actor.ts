@@ -1,5 +1,6 @@
-import {vec, Vector} from "excalibur";
+import {CollisionType, Engine, vec, Vector} from "excalibur";
 import {BaseVehicleActor} from "@/actors/base-vehicle.actor";
+import {WheelState} from "@/models/wheel-state.model";
 import {getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2} from "@/services/vehicle-physics.service";
 
 /** Driven axle layout: front-, rear- or all-wheel drive. */
@@ -40,6 +41,16 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // average front/rear axle slip angle of the last frame (rad), exposed for the debug HUD
     public slipAngleFront: number = 0;
     public slipAngleRear: number = 0;
+
+    // Per-wheel physics state for the new force-based path (grip, Fz, slip, saturation, surface stack),
+    // parallel to the inherited `wheelFactors`. Co-owned: the SurfacesService writes `gripSurface`/the
+    // surface stack, the update system writes `load`/`slipAngle`/`saturated`, the debug HUD reads.
+    public wheelStates: Map<string, WheelState> = new Map([
+        ['frontLeftWheel', new WheelState()],
+        ['frontRightWheel', new WheelState()],
+        ['rearLeftWheel', new WheelState()],
+        ['rearRightWheel', new WheelState()],
+    ]);
 
     // --- per-vehicle datasheet (single source of truth) ---
     public mass: number = 1000;         // kg, chassis mass (ex `weight`)
@@ -83,6 +94,21 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public linearDragCoeff: number = 0.2;   // 1/s
     // reverse can only be toggled at (near) standstill, below this speed (m/s)
     public reverseToggleMaxSpeed: number = 0.5;
+
+    /**
+     * Turns the four wheel child actors into `Passive` collision sensors after the visual base has
+     * created them. Passive wheels emit `collisionstart`/`collisionend` with the surfaces (so the
+     * SurfacesService can read the per-wheel grip) without any physical response — the `Active` body
+     * keeps handling the walls. Confined to this actor: {@link BaseVehicleActor} and the old
+     * `VehicleActor` keep their wheels at the default `PreventCollision`, so the Playwright baseline
+     * is untouched and the new SurfacesService branch stays inert for them.
+     */
+    override onInitialize(engine: Engine): void {
+        super.onInitialize(engine);
+        for (const wheel of [this.frontLeftWheel, this.frontRightWheel, this.rearLeftWheel, this.rearRightWheel]) {
+            wheel.body.collisionType = CollisionType.Passive;
+        }
+    }
 
     public get pxPerMeter(): number {
         return computePxPerMeter(this.lengthMeters);
