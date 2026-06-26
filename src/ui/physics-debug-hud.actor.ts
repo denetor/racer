@@ -9,6 +9,13 @@ const COL_LEFT_X = 30;
 const COL_RIGHT_X = 140;
 const COLOR_NORMAL = 'rgba(255, 255, 0, 1)';
 const COLOR_SATURATED = 'rgba(255, 80, 80, 1)';
+const COLOR_LOADED = 'rgba(80, 220, 80, 1)';   // bar fill when the wheel is loaded above static
+const COLOR_UNLOADED = 'rgba(255, 80, 80, 1)'; // bar fill when the wheel is unloaded below static
+// Per-wheel load bar, drawn right of the Fz number, centred on the static load (tick), filling right
+// (loaded) or left (unloaded) by |ΔFz| relative to static.
+const BAR_X_OFFSET = 54;
+const BAR_WIDTH = 38;
+const BAR_HEIGHT = 9;
 
 /**
  * Minimal debug overlay for the physics dev scene. It grows step by step; it now shows the vehicle
@@ -17,6 +24,8 @@ const COLOR_SATURATED = 'rgba(255, 80, 80, 1)';
  * state. Below that a 2x2 grid (FL/FR over RL/RR) shows the live per-wheel surface grip μ, static
  * load Fz (N) and slip angle (°), with a wheel's cell turned **red** when its tyre saturates the
  * friction circle — so sensing, load split and sliding can be verified at a glance while driving.
+ * Each cell also carries a **load bar** centred on the static load: it fills right (green) when the
+ * wheel is loaded above static, left (red) when below, making the load transfer visible while driving.
  */
 export class PhysicsDebugHud extends ScreenElement {
     private vehicle: PhysicVehicleActor | null = null;
@@ -81,7 +90,33 @@ export class PhysicsDebugHud extends ScreenElement {
         this.cell(ctx, label, x, topRow);
         this.cell(ctx, `μ ${(ws?.gripSurface ?? 0).toFixed(2)}`, x, topRow + 1);
         this.cell(ctx, `${Math.round(ws?.load ?? 0)}N`, x, topRow + 2);
+        this.loadBar(ctx, x + BAR_X_OFFSET, topRow + 2, ws?.load ?? 0, ws?.loadStatic ?? 0);
+        ctx.fillStyle = ws?.saturated ? COLOR_SATURATED : COLOR_NORMAL;
         this.cell(ctx, `${slipDeg.toFixed(1)}°`, x, topRow + 3);
+    }
+
+    /**
+     * Draws the per-wheel load bar at column `x`, row `rowIndex`. A centre tick marks the static load;
+     * the bar fills toward the right (green) when the dynamic load is above static, toward the left
+     * (red) when below, with length proportional to |ΔFz| / static (clamped to a full half-bar at a
+     * 100% change). Makes the longitudinal/lateral load transfer readable at a glance while driving.
+     */
+    private loadBar(ctx: CanvasRenderingContext2D, x: number, rowIndex: number, load: number, loadStatic: number): void {
+        const yCenter = LINE_HEIGHT / 2 + rowIndex * LINE_HEIGHT;
+        const top = yCenter - BAR_HEIGHT / 2;
+        const cx = x + BAR_WIDTH / 2;
+        ctx.strokeStyle = COLOR_NORMAL;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, top, BAR_WIDTH, BAR_HEIGHT);
+        if (loadStatic > 0) {
+            const frac = Math.max(-1, Math.min(1, (load - loadStatic) / loadStatic));
+            const len = Math.abs(frac) * (BAR_WIDTH / 2);
+            ctx.fillStyle = frac >= 0 ? COLOR_LOADED : COLOR_UNLOADED;
+            ctx.fillRect(frac >= 0 ? cx : cx - len, top + 1, len, BAR_HEIGHT - 2);
+        }
+        // Centre tick = static baseline.
+        ctx.fillStyle = COLOR_NORMAL;
+        ctx.fillRect(cx, top - 1, 1, BAR_HEIGHT + 2);
     }
 
     private line(ctx: CanvasRenderingContext2D, text: string, index: number): void {

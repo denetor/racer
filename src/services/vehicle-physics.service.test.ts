@@ -1,4 +1,4 @@
-import {bodyToWorld, clampToFrictionCircle, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, worldToBody} from './vehicle-physics.service';
+import {bodyToWorld, clampToFrictionCircle, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -313,5 +313,86 @@ describe('lowSpeedKinematicBlend', () => {
 
     it('disables the blend for a non-positive threshold (lateralScale = 1)', () => {
         expect(lowSpeedKinematicBlend(0, 0, 10, 0.4, 2.5).lateralScale).toBe(1);
+    });
+});
+
+describe('longitudinalLoadTransfer', () => {
+    it('computes the axle-total transfer ΔFz = m·a_x·h/L', () => {
+        expect(longitudinalLoadTransfer(1000, 5, 0.5, 2.5)).toBeCloseTo(1000 * 5 * 0.5 / 2.5);
+    });
+
+    it('is positive under forward acceleration (load moves rearward)', () => {
+        expect(longitudinalLoadTransfer(1000, 5, 0.5, 2.5)).toBeGreaterThan(0);
+    });
+
+    it('is negative under braking (load moves forward)', () => {
+        expect(longitudinalLoadTransfer(1000, -5, 0.5, 2.5)).toBeLessThan(0);
+    });
+
+    it('scales linearly with the COG height', () => {
+        const lo = longitudinalLoadTransfer(1000, 5, 0.5, 2.5);
+        const hi = longitudinalLoadTransfer(1000, 5, 1.0, 2.5);
+        expect(hi).toBeCloseTo(2 * lo);
+    });
+
+    it('returns 0 for a non-positive wheelbase', () => {
+        expect(longitudinalLoadTransfer(1000, 5, 0.5, 0)).toBe(0);
+    });
+});
+
+describe('dynamicLoad (longitudinal)', () => {
+    const symmetric: WheelLoads = {
+        frontLeftWheel: 2500,
+        frontRightWheel: 2500,
+        rearLeftWheel: 2500,
+        rearRightWheel: 2500,
+    };
+
+    it('equals the static load when there is no acceleration', () => {
+        const fz = dynamicLoad(symmetric, 1000, 0, 0, 0.5, 2.5, 1.5, 1.5);
+        expect(fz).toEqual(symmetric);
+    });
+
+    it('loads the rear and lightens the front under forward acceleration, half the axle transfer per wheel', () => {
+        // ΔL = 1000*5*0.5/2.5 = 1000 -> half = 500 per wheel.
+        const fz = dynamicLoad(symmetric, 1000, 5, 0, 0.5, 2.5, 1.5, 1.5);
+        expect(fz.frontLeftWheel).toBeCloseTo(2000);
+        expect(fz.frontRightWheel).toBeCloseTo(2000);
+        expect(fz.rearLeftWheel).toBeCloseTo(3000);
+        expect(fz.rearRightWheel).toBeCloseTo(3000);
+    });
+
+    it('loads the front under braking (dive)', () => {
+        const fz = dynamicLoad(symmetric, 1000, -5, 0, 0.5, 2.5, 1.5, 1.5);
+        expect(fz.frontLeftWheel).toBeGreaterThan(2500);
+        expect(fz.rearLeftWheel).toBeLessThan(2500);
+    });
+
+    it('conserves the total load before any clamp (ΣΔ = 0)', () => {
+        const fz = dynamicLoad(symmetric, 1000, 5, 0, 0.5, 2.5, 1.5, 1.5);
+        const sum = fz.frontLeftWheel + fz.frontRightWheel + fz.rearLeftWheel + fz.rearRightWheel;
+        expect(sum).toBeCloseTo(2500 * 4);
+    });
+
+    it('clamps a wheel to ≥ 0 when the transfer exceeds the static load', () => {
+        const light: WheelLoads = {
+            frontLeftWheel: 800,
+            frontRightWheel: 800,
+            rearLeftWheel: 800,
+            rearRightWheel: 800,
+        };
+        // Hard braking: ΔL = 1000*(-10)*0.5/2.5 = -2000 -> half = -1000; rear = 800 - 1000 < 0.
+        const fz = dynamicLoad(light, 1000, -10, 0, 0.5, 2.5, 1.5, 1.5);
+        expect(fz.rearLeftWheel).toBe(0);
+        expect(fz.rearRightWheel).toBe(0);
+        expect(fz.frontLeftWheel).toBeCloseTo(1800);
+    });
+
+    it('scales the transfer linearly with the COG height', () => {
+        const lo = dynamicLoad(symmetric, 1000, 5, 0, 0.5, 2.5, 1.5, 1.5);
+        const hi = dynamicLoad(symmetric, 1000, 5, 0, 1.0, 2.5, 1.5, 1.5);
+        const dLo = lo.rearLeftWheel - 2500;
+        const dHi = hi.rearLeftWheel - 2500;
+        expect(dHi).toBeCloseTo(2 * dLo);
     });
 });

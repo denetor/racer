@@ -30,6 +30,10 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public brakeInput: number = 0;
     // longitudinal acceleration of the last integrated frame (m/s²), exposed for the debug HUD
     public longitudinalAccel: number = 0;
+    // Body-frame acceleration of the last frame (m/s²): the net force / mass, i.e. the true COG
+    // acceleration (the Coriolis terms cancel). Written at the end of integration and read the next
+    // frame as the source of dynamic load transfer — the one-frame lag breaks the Fz↔force loop.
+    public bodyAccel: Vector = vec(0, 0);
     // average front/rear axle slip angle of the last frame (rad), exposed for the debug HUD
     public slipAngleFront: number = 0;
     public slipAngleRear: number = 0;
@@ -119,6 +123,16 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     /** Average track W (m), from the axle widths drawn (in px) by the base. */
     public get trackMeters(): number {
         return ((this.frontAxleWidth + this.rearAxleWidth) / 2) / this.pxPerMeter;
+    }
+
+    /** Front track (m), from the front axle width drawn (in px) by the base. */
+    public get trackFrontMeters(): number {
+        return this.frontAxleWidth / this.pxPerMeter;
+    }
+
+    /** Rear track (m), from the rear axle width drawn (in px) by the base. */
+    public get trackRearMeters(): number {
+        return this.rearAxleWidth / this.pxPerMeter;
     }
 
     /**

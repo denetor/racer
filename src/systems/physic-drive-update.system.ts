@@ -1,7 +1,7 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {bodyToWorld, clampToFrictionCircle, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
+import {bodyToWorld, clampToFrictionCircle, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
 import {DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
 
@@ -15,7 +15,8 @@ import {DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD} from "@/constants/ph
  * The car turns from **real per-wheel tyre forces**: each wheel sees its own velocity (it sits at a
  * different point of the rotating body), hence its own slip angle, hence a linear lateral force
  * `Fy = −Cα·α`, **clamped per wheel to the friction circle `μ·Fz`** (μ = the live surface grip, Fz =
- * the static load). Those forces sum into the net `Fx`/`Fy` and a yaw torque `Mz`, so the yaw rate
+ * the dynamic load: static split plus longitudinal transfer under accel/braking). Those forces sum
+ * into the net `Fx`/`Fy` and a yaw torque `Mz`, so the yaw rate
  * **emerges** from the geometry — and the *asymmetric* saturation (front vs rear, grass side vs
  * tarmac side) makes the car slide, under/oversteer and "pull" to one side without scripting it. The
  * longitudinal propulsion stays the Step 0 "tracer" at the COG (no yaw torque from it, not clamped).
@@ -120,8 +121,12 @@ export class PhysicDriveUpdateSystem extends System {
 
         // Per-wheel linear tyre forces: the curve emerges from each wheel's slip angle.
         const arms = vehicle.wheelArmsBody;
-        // Static load Fz per wheel (from the total mass and geometry), the friction-circle radius input.
-        const loads = staticLoad(vehicle.totalMass, G, arms);
+        // Static load Fz per wheel (spec §3.3), then the dynamic load with longitudinal transfer (spec
+        // §3.4). The dynamic Fz is the friction-circle radius input; the static one is kept as the HUD
+        // bar baseline. a_x/a_y come from last frame's body acceleration (net force / mass): the
+        // one-frame lag breaks the Fz↔force loop. The COG stays fixed — only the load redistributes.
+        const staticLoads = staticLoad(vehicle.totalMass, G, arms);
+        const loads = dynamicLoad(staticLoads, vehicle.totalMass, vehicle.bodyAccel.x, vehicle.bodyAccel.y, vehicle.cogHeight, vehicle.wheelbaseMeters, vehicle.trackFrontMeters, vehicle.trackRearMeters);
         const wheels: {name: keyof WheelLoads; arm: typeof arms.frontLeftWheel; isFront: boolean}[] = [
             {name: 'frontLeftWheel', arm: arms.frontLeftWheel, isFront: true},
             {name: 'frontRightWheel', arm: arms.frontRightWheel, isFront: true},
@@ -148,6 +153,7 @@ export class PhysicDriveUpdateSystem extends System {
             const clamped = clampToFrictionCircle(0, fLat, mu, fz);
             if (wheelState) {
                 wheelState.load = fz;
+                wheelState.loadStatic = staticLoads[name];
                 wheelState.slipAngle = alpha;
                 wheelState.saturated = clamped.saturated;
             }
@@ -178,6 +184,9 @@ export class PhysicDriveUpdateSystem extends System {
         next.omega = k * next.omega + (1 - k) * blend.kinematicYaw;
 
         vehicle.longitudinalAccel = dt > 0 ? (next.vx - vx) / dt : 0;
+        // Store the body-frame acceleration (net force / mass) for next frame's load transfer. The
+        // Coriolis terms cancel, so fx/m and fy/m are exactly the COG acceleration that shifts load.
+        vehicle.bodyAccel = vec(fx / mass, fy / mass);
         vehicle.velBody = vec(next.vx, next.vy);
         vehicle.yawRate = next.omega;
 

@@ -130,6 +130,51 @@ export function staticLoad(totalMass: number, g: number, arms: WheelArms): Wheel
 }
 
 /**
+ * Longitudinal load transfer (spec §3.4): the **axle-total** vertical load (N) that shifts from the
+ * front axle to the rear axle under longitudinal acceleration. `ΔFz = mass · a_x · cogHeight / L`,
+ * with `a_x` the body-frame longitudinal acceleration (m/s²), `cogHeight` the COG height above ground
+ * (m), and `L` the wheelbase (m).
+ *
+ * Sign: `a_x > 0` (accelerating) returns a **positive** ΔFz = load moving rearward (the rear axle
+ * gains, the front lightens); braking (`a_x < 0`) returns negative = load moving forward ("dive").
+ * This is the **axle** transfer, so each of the axle's two wheels gets half. Returns 0 for a
+ * non-positive wheelbase. The COG itself does not move — only the load (spec §3.4).
+ */
+export function longitudinalLoadTransfer(mass: number, ax: number, cogHeight: number, L: number): number {
+    if (L <= 0) return 0;
+    return mass * ax * cogHeight / L;
+}
+
+/**
+ * Dynamic per-wheel vertical load Fz (N): the static split (spec §3.3) plus load transfer (spec §3.4),
+ * each wheel clamped to `≥ 0`. The centre of gravity stays **fixed** in the body; only the *load*
+ * redistributes between the tyres under acceleration. This is the sole entry point used by the update
+ * system, and its output feeds the friction circle (`μ·Fz`).
+ *
+ * **Longitudinal (Phase 1).** The axle-total transfer {@link longitudinalLoadTransfer} is split half
+ * per wheel and signed by axle: under forward acceleration (`a_x > 0`) the front wheels lose `ΔL/2`
+ * and the rear wheels gain `ΔL/2` (so braking loads the front — "dive"). The four signed transfers
+ * sum to zero, so **before the clamp** the loads still sum to the total weight (conservation).
+ *
+ * **Lateral.** Added in Phase 2 (per axle, from `ay` and the per-axle tracks `trackFront`/
+ * `trackRear`); these parameters are currently inert.
+ *
+ * Each wheel is clamped to `≥ 0` (an unloaded wheel has zero grip). The clamped excess is **not**
+ * redistributed (spec §3.4), so the sum may drop below the total weight when a wheel lifts.
+ */
+export function dynamicLoad(staticLoads: WheelLoads, mass: number, ax: number, ay: number, cogHeight: number, L: number, trackFront: number, trackRear: number): WheelLoads {
+    // Longitudinal: axle-total transfer, half to each wheel; front loses, rear gains under +a_x.
+    const halfLong = longitudinalLoadTransfer(mass, ax, cogHeight, L) / 2;
+    // Lateral transfer (per axle) is added in Phase 2; ay/trackFront/trackRear unused for now.
+    return {
+        frontLeftWheel: Math.max(0, staticLoads.frontLeftWheel - halfLong),
+        frontRightWheel: Math.max(0, staticLoads.frontRightWheel - halfLong),
+        rearLeftWheel: Math.max(0, staticLoads.rearLeftWheel + halfLong),
+        rearRightWheel: Math.max(0, staticLoads.rearRightWheel + halfLong),
+    };
+}
+
+/**
  * Integrates one step of the placeholder "tracer" longitudinal dynamics:
  *
  *   a_x  = fx / mass - dragCoeff * vx      (linear drag; `dragCoeff` in 1/s)

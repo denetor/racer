@@ -309,3 +309,35 @@ usa /prd-to-plan con il prd che trovi in @resources/issues/0031-new-physics/step
 Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
 Considera anche la struttura attuale del software
 ```
+
+```md
+/implement-plan `Phase 1: Trasferimento longitudinale (affondo/squat)` at @resources/issues/0031-new-physics/step03/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+Output:
+```md
+Cosa ho modificato
+                                                                                                                                                                                                                                                                                                               
+Funzioni pure (vehicle-physics.service.ts):
+- longitudinalLoadTransfer(mass, ax, cogHeight, L) → ΔFz totale d'asse (m·a_x·h/L), con segni documentati (a_x>0 → carico al retro; frenata → in avanti).                                                                                                                                                        
+- dynamicLoad(staticLoads, mass, ax, ay, cogHeight, L, trackFront, trackRear) → 4 Fz (statico + Δlong/2 per ruota, clamp ≥ 0). I parametri laterali (ay, trackFront/Rear) sono presenti ma inerti fino alla Fase 2.                                                                                              
+                                                                                                                                                                                                                                                                                                               
+Stato (PhysicVehicleActor): nuovo bodyAccel (m/s², frame corpo) + getter trackFrontMeters/trackRearMeters. cogHeight ora attivo. WheelState: nuovo loadStatic (baseline HUD).                                                                                                                                    
+                                                                                                                                                                                                                                                                                                               
+Orchestrazione (PhysicDriveUpdateSystem.integrateMotion): calcola staticLoad → dynamicLoad; il Fz dinamico entra in clampToFrictionCircle e va in wheelState.load, lo statico in wheelState.loadStatic; a fine frame salva bodyAccel = (fx/mass, fy/mass) (forze nette → letto il frame dopo, ritardo di 1 frame 
+che spezza il loop). longitudinalAccel invariato per l'HUD; cogPosition/bracci r_i non toccati.                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                               
+HUD (PhysicsDebugHud): barra per ruota centrata sullo statico (verde=carica/rosso=scarica, lunghezza ∝ |ΔFz|/statico), accanto al numero Fz. Nessun cambio di altezza necessario.                                                                                                                                
+                                                                                                                                                                                                                                                                                                               
+Test: 12 nuovi (5 longitudinalLoadTransfer + 7 dynamicLoad) — valore/segno, a_x=0→statico, /2 per ruota, somma invariante, clamp ≥0, scaling con cogHeight. Suite: 117/117.                                                                                                                                      
+                                                                                                                                                                                                                                                                                                               
+Nota su una scelta                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                               
+Ho aggiunto il parametro mass a dynamicLoad (la firma del piano lo ometteva): la formula del trasferimento richiede la massa e passarla esplicitamente è più pulito che derivarla da Σstatic/g. Firma completa e stabile già da ora, così la Fase 2 riempie solo il corpo del termine laterale senza churn.      
+                                                                                                                                                                                                                                                                                                               
+Verifica manuale (a te)                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                               
+main.ts è già su START_SCENE = 'physics' (riga 11), quindi puoi guidare e verificare subito: frenata forte → barre/Fz anteriori crescono (affondo), accelerazione → l'opposto, effetto che scala con cogHeight, nessuna vibrazione da fermo.
+```
