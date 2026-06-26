@@ -9,6 +9,8 @@ Scrivi l'elenco degli step per implementare quanto descritto nel file `specs.md'
 dettagliata nel file @resources/issues/0031-new-physics/plan-steps.md
 ```
 
+
+---
 ```md
 /grill-me implementazione dello `step0` del file `resources/issues/0031-new-physics/plan-steps.md`.
 Fai riferimento alle specifiche nel file `resources/issues/0031-new-physics/specs.md` e alla struttura del software
@@ -53,6 +55,8 @@ Considera anche la struttura attuale del software, che è sviluppato con Excalib
 convenzioni e le sue buone pratiche.
 ```
 
+
+---
 ```md
 /grill-me implementazione dello `step1` del file `resources/issues/0031-new-physics/plan-steps.md`.
 Fai riferimento alle specifiche nel file `resources/issues/0031-new-physics/specs.md` e alla struttura del software
@@ -157,6 +161,8 @@ For you (manual verification — Step 1 closeout): the grill-me-out checklist is
 If the car oscillates or the understeer feels off while driving, the tuning knobs are corneringStiffnessFront/Rear and Iz on the actor, and LOW_SPEED_BLEND_THRESHOLD for the blend.
 ```
 
+
+---
 ```md
 /grill-me implementazione dello `step2` del file `resources/issues/0031-new-physics/plan-steps.md`.
 Fai riferimento alle specifiche nel file `resources/issues/0031-new-physics/specs.md` e alla struttura del software
@@ -278,4 +284,28 @@ Manual check (you drive, START_SCENE='physics')
                                                                                                                                                                                                                                                                                                                
 One thing to watch while tuning: the saturated flag is computed pre-blend (as the plan specifies), so a steered front wheel can read red even at standstill — the motion stays correct (blend scales the force to ~0), it's only the HUD flag. If that's distracting, it's a tuning detail, not a logic change.  
 Tuning knobs per the grill: per-surface gripFactor, corneringStiffnessFront/Rear, cogPosition. 
+```
+
+
+---
+```md
+/grill-me implementazione dello `step3` del file `resources/issues/0031-new-physics/plan-steps.md`.
+Fai riferimento alle specifiche nel file `resources/issues/0031-new-physics/specs.md` e alla struttura del software
+esistente.
+Ricordati di considerare che l'applicazione è sviluppata con ExcaliburJs, quindi si dovrebbero considerare anche le sue
+convenzioni e le sue pratiche.
+
+Alla fine scrivi l'output nel file @resources/issues/0031-new-physics/step03/grill-me-out.md
+```
+
+```md
+use /write-a-prd about the decisions just taken and listed in @resources/issues/0031-new-physics/step03/grill-me-out.md . Write the output file in the directory `resources/issues/0031-new-physics/step03/`
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+usa /prd-to-plan con il prd che trovi in @resources/issues/0031-new-physics/step03/prd.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
 ```
