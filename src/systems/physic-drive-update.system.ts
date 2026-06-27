@@ -44,7 +44,11 @@ export class PhysicDriveUpdateSystem extends System {
             this.updateSteeringAngle(entity, input.steerTarget, dt);
             this.integrateMotion(entity, dt);
 
-            entity.setEmitters('throttle', input.throttleTarget > 0);
+            // Step 5: smoke is driven by real slip, not the throttle — each wheel smokes when it is
+            // sliding longitudinally (wheelspin or lockup), set by integrateMotion above.
+            for (const [name, wheelState] of entity.wheelStates) {
+                entity.setWheelSmoke(name, wheelState.wheelspin || wheelState.lockup);
+            }
         }
     }
 

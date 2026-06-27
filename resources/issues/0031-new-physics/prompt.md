@@ -435,7 +435,7 @@ Considera anche la struttura attuale del software
 ```
 
 ```md
-/implement-plan `Phase 2: ` at @resources/issues/0031-new-physics/step05/prd-plan.md
+/implement-plan `Phase 2: Fumo per-ruota (strato cosmetico)` at @resources/issues/0031-new-physics/step05/prd-plan.md
 Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
 Considera anche la struttura attuale del software
 ```

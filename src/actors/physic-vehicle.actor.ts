@@ -1,7 +1,10 @@
-import {CollisionType, Engine, vec, Vector} from "excalibur";
+import {Color, CollisionType, EmitterType, Engine, ParticleEmitter, vec, Vector} from "excalibur";
 import {BaseVehicleActor} from "@/actors/base-vehicle.actor";
 import {WheelState} from "@/models/wheel-state.model";
 import {Drivetrain, getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2, WheelArms} from "@/services/vehicle-physics.service";
+
+/** Per-vehicle smoke tuning: particle rate when a wheel is sliding (wheelspin/lockup), 0 when not. */
+const WHEEL_SMOKE_EMIT_RATE = 120;
 
 /**
  * Force-based vehicle. Shares the visual setup with {@link BaseVehicleActor} and adds the planar
@@ -46,6 +49,11 @@ export class PhysicVehicleActor extends BaseVehicleActor {
         ['rearLeftWheel', new WheelState()],
         ['rearRightWheel', new WheelState()],
     ]);
+
+    // Per-wheel smoke emitters (Step 5), created in onInitialize and keyed by wheel name. They live
+    // ONLY on this actor (not on BaseVehicleActor), so the legacy VehicleActor and its Playwright
+    // baseline are untouched. Toggled by setWheelSmoke from the wheelspin/lockup flags.
+    private wheelSmoke: Map<string, ParticleEmitter> = new Map();
 
     // --- per-vehicle datasheet (single source of truth) ---
     public mass: number = 1000;         // kg, chassis mass (ex `weight`)
@@ -111,9 +119,53 @@ export class PhysicVehicleActor extends BaseVehicleActor {
      */
     override onInitialize(engine: Engine): void {
         super.onInitialize(engine);
-        for (const wheel of [this.frontLeftWheel, this.frontRightWheel, this.rearLeftWheel, this.rearRightWheel]) {
+        const wheels: [string, typeof this.frontLeftWheel][] = [
+            ['frontLeftWheel', this.frontLeftWheel],
+            ['frontRightWheel', this.frontRightWheel],
+            ['rearLeftWheel', this.rearLeftWheel],
+            ['rearRightWheel', this.rearRightWheel],
+        ];
+        for (const [name, wheel] of wheels) {
             wheel.body.collisionType = CollisionType.Passive;
+            // One smoke emitter per wheel, at the wheel's local position (nose-up frame), child of the
+            // vehicle. Starts off (emitRate 0); the update system raises it when the wheel slides.
+            const emitter = this.makeWheelSmokeEmitter(wheel.pos.clone());
+            this.addChild(emitter);
+            this.wheelSmoke.set(name, emitter);
         }
+    }
+
+    /** Builds a per-wheel smoke emitter at `pos` (local frame), initially off (emitRate 0). */
+    private makeWheelSmokeEmitter(pos: Vector): ParticleEmitter {
+        return new ParticleEmitter({
+            pos,
+            isEmitting: true,
+            emitRate: 0, // off until a skid raises it via setWheelSmoke
+            emitterType: EmitterType.Circle,
+            radius: 4,
+            particle: {
+                minSpeed: 5,
+                maxSpeed: 20,
+                minAngle: 0,
+                maxAngle: Math.PI * 2,
+                minSize: 2,
+                maxSize: 8,
+                startSize: 1,
+                endSize: 6,
+                acc: vec(0, 0),
+                life: 700,
+                opacity: 0.6,
+                fade: true,
+                beginColor: Color.White,
+                endColor: Color.White,
+            },
+        });
+    }
+
+    /** Turns a single wheel's smoke on/off (Step 5). No-op if the emitter is not yet created. */
+    public setWheelSmoke(name: string, enabled: boolean): void {
+        const emitter = this.wheelSmoke.get(name);
+        if (emitter) emitter.emitRate = enabled ? WHEEL_SMOKE_EMIT_RATE : 0;
     }
 
     public get pxPerMeter(): number {
