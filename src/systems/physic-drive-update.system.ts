@@ -1,9 +1,9 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
-import {DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, RHO_AIR, V_FLOOR} from "@/constants/physics.constants";
+import {CRR, DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, RHO_AIR, V_FLOOR} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -164,8 +164,12 @@ export class PhysicDriveUpdateSystem extends System {
             const alpha = slipAngle(wv.x, wv.y, delta);
             // Longitudinal demand stays full (so the car accelerates from rest); the lateral demand is
             // scaled by k *before* the clamp (atan2 noise at low speed). The circle couples them, so at
-            // low speed the radius is left almost entirely to traction.
-            const fxLong = driveShares[name];
+            // low speed the radius is left almost entirely to traction. The per-wheel rolling
+            // resistance (spec §3.8) opposes this wheel's longitudinal velocity with `Crr·rollFactor·Fz`
+            // — high on grass, so an asymmetric surface drags one side and yaws the car ("pull").
+            const rollFactor = wheelState?.rollFactor ?? 1;
+            const fRoll = rollingResistance(CRR, rollFactor, fz);
+            const fxLong = driveShares[name] - Math.sign(wv.x) * fRoll;
             const fLat = k * lateralForceLinear(alpha, cAlpha);
             // Friction circle, **per wheel, before the sum**: the asymmetric saturation (front vs rear,
             // grass side vs tarmac side) is what produces the yaw torque that makes the car slide and

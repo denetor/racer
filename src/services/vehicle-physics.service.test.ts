@@ -1,4 +1,4 @@
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -542,5 +542,26 @@ describe('distributeDrive', () => {
             const d = distributeDrive(-5000, dt, 0.3); // negative = reverse, flows through
             expect(d.frontLeftWheel + d.frontRightWheel + d.rearLeftWheel + d.rearRightWheel).toBeCloseTo(-5000);
         }
+    });
+});
+
+describe('rollingResistance', () => {
+    it('matches Crr·rollFactor·Fz', () => {
+        expect(rollingResistance(0.015, 1, 2500)).toBeCloseTo(0.015 * 1 * 2500);
+    });
+
+    it('is proportional to the load Fz', () => {
+        expect(rollingResistance(0.015, 1, 5000)).toBeCloseTo(2 * rollingResistance(0.015, 1, 2500));
+    });
+
+    it('scales with the per-surface rollFactor (grass drags more than tarmac)', () => {
+        const tarmac = rollingResistance(0.015, 0.05, 2500);
+        const grass = rollingResistance(0.015, 0.5, 2500);
+        expect(grass).toBeGreaterThan(tarmac);
+        expect(grass).toBeCloseTo(10 * tarmac);
+    });
+
+    it('is zero at zero load', () => {
+        expect(rollingResistance(0.015, 1, 0)).toBe(0);
     });
 });

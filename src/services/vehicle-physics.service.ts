@@ -348,6 +348,18 @@ export function aeroDrag(rho: number, cd: number, a: number, v: number): number 
 }
 
 /**
+ * Rolling-resistance magnitude (N) for a single wheel, spec §3.8: `Crr · rollFactor · Fz`. `Crr` is
+ * the generic tyre coefficient, `rollFactor` the per-surface multiplier under that wheel (high on
+ * grass), and `Fz` the wheel's dynamic vertical load. Returns the magnitude only; the caller applies
+ * it opposing that wheel's longitudinal velocity `v_i_x`. Because it is per wheel, an asymmetric
+ * surface (half the car on grass) makes the wheels drag unevenly, yawing the car ("pull"); on a
+ * uniform surface the four sum to `≈ Crr·m·g`, the net form of the spec. Zero at zero load.
+ */
+export function rollingResistance(crr: number, rollFactor: number, fz: number): number {
+    return crr * rollFactor * fz;
+}
+
+/**
  * Distributes the (signed) total drive force `fDrive` (N) onto the four wheels by drivetrain
  * (spec §3.9), returning the per-wheel longitudinal share as a {@link WheelLoads}:
  *   - `fwd` → all to the front axle, `rwd` → all to the rear axle;

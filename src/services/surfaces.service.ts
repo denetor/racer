@@ -59,7 +59,7 @@ export class SurfacesService {
                         const state: WheelState | undefined = vehicle.wheelStates.get(owner.name);
                         if (state) {
                             state.surfaces.push(surfaceActor);
-                            SurfacesService.resolveGrip(state);
+                            SurfacesService.resolveSurface(state);
                         }
                     } else if (vehicle instanceof VehicleActor) {
                         // Legacy kinematic path: update the shared WheelFactor (inert for the new actor).
@@ -79,7 +79,7 @@ export class SurfacesService {
                         if (state) {
                             const idx = state.surfaces.lastIndexOf(surfaceActor);
                             if (idx !== -1) state.surfaces.splice(idx, 1);
-                            SurfacesService.resolveGrip(state);
+                            SurfacesService.resolveSurface(state);
                         }
                     }
                 });
@@ -89,13 +89,16 @@ export class SurfacesService {
 
 
     /**
-     * Resolves the wheel's current grip from its surface stack: the most-recently-entered surface
-     * still present wins, or {@link DEFAULT_SURFACE_GRIP} when the wheel is off every surface. Robust
-     * to overlapping border polygons and to the order of collisionstart/collisionend events.
+     * Resolves the wheel's current surface properties from its stack: the most-recently-entered
+     * surface still present wins ("last-wins"), giving both the grip μ ({@link DEFAULT_SURFACE_GRIP}
+     * off every surface) and the rolling-resistance multiplier (the surface `dragFactor`, default 1.0
+     * off-surface). Robust to overlapping border polygons and to the order of
+     * collisionstart/collisionend events.
      */
-    private static resolveGrip(state: WheelState): void {
+    private static resolveSurface(state: WheelState): void {
         const top = state.surfaces[state.surfaces.length - 1];
         state.gripSurface = top ? top.gripFactor : DEFAULT_SURFACE_GRIP;
+        state.rollFactor = top ? top.dragFactor : 1.0;
     }
 
 
