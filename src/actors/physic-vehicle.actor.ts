@@ -93,9 +93,11 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public steeringSpeed: number = 2.5;
     public steeringReturnSpeed: number = 2.5;
 
-    // Transitional "tracer" brake: throttle -> a constant body Fx opposing motion at the COG. The real
-    // per-wheel, front-biased brake replaces this in Step 4 Phase 3.
-    public tracerBrakeForce: number = 9000; // N at full brake (opposes motion)
+    // Braking (spec §3.9): separate from the drive, distributed across the four wheels with a front
+    // bias and entering the friction circle per wheel (so the fronts — loaded by weight transfer —
+    // saturate/lock first). brakeForce is the total at full brake; brakeBias the front fraction.
+    public brakeForce: number = 12000;  // N total at full brake (opposes each wheel's motion)
+    public brakeBias: number = 0.6;     // [0, 1] fraction of the brake to the front axle
     // reverse can only be toggled at (near) standstill, below this speed (m/s)
     public reverseToggleMaxSpeed: number = 0.5;
 

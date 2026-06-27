@@ -386,6 +386,25 @@ export function distributeDrive(fDrive: number, drivetrain: Drivetrain, driveBia
 }
 
 /**
+ * Distributes the total brake force `brakeForce` (N, magnitude) onto the four wheels with a front
+ * bias (spec §3.9): the front axle gets `brakeBias·brakeForce`, the rear `(1−brakeBias)·brakeForce`,
+ * each split **50/50** between its two wheels. Returns the per-wheel brake **magnitudes** (always
+ * ≥ 0) as a {@link WheelLoads}; the caller applies each opposing its wheel's longitudinal velocity.
+ * The four shares sum to `brakeForce`. The brake is independent of the drive: the two are combined
+ * per wheel by the caller and the friction circle limits the result (front saturates/locks first).
+ */
+export function distributeBrake(brakeForce: number, brakeBias: number): WheelLoads {
+    const front = brakeForce * brakeBias;
+    const rear = brakeForce * (1 - brakeBias);
+    return {
+        frontLeftWheel: front / 2,
+        frontRightWheel: front / 2,
+        rearLeftWheel: rear / 2,
+        rearRightWheel: rear / 2,
+    };
+}
+
+/**
  * Kinematic bicycle yaw rate: `ω = v_x·tan(δ)/L` (forward velocity, steering angle, wheelbase).
  * The yaw scales with speed and steering, is zero at standstill or zero steer, and flips sign in
  * reverse (negative `v_x`). Used as the provisional yaw source in Step 1 and reused as the

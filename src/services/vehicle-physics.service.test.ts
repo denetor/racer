@@ -1,4 +1,4 @@
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -563,5 +563,35 @@ describe('rollingResistance', () => {
 
     it('is zero at zero load', () => {
         expect(rollingResistance(0.015, 1, 0)).toBe(0);
+    });
+});
+
+describe('distributeBrake', () => {
+    it('biases the brake to the front axle, 50/50 within each axle', () => {
+        const b = distributeBrake(10000, 0.6);
+        expect(b.frontLeftWheel).toBeCloseTo(3000);  // 0.6 * 10000 / 2
+        expect(b.frontRightWheel).toBeCloseTo(3000);
+        expect(b.rearLeftWheel).toBeCloseTo(2000);   // 0.4 * 10000 / 2
+        expect(b.rearRightWheel).toBeCloseTo(2000);
+    });
+
+    it('always sums the four shares back to the total brake force', () => {
+        const b = distributeBrake(12000, 0.55);
+        expect(b.frontLeftWheel + b.frontRightWheel + b.rearLeftWheel + b.rearRightWheel).toBeCloseTo(12000);
+    });
+
+    it('returns non-negative magnitudes (the caller applies the direction)', () => {
+        const b = distributeBrake(8000, 0.6);
+        expect(b.frontLeftWheel).toBeGreaterThanOrEqual(0);
+        expect(b.rearRightWheel).toBeGreaterThanOrEqual(0);
+    });
+
+    it('puts everything on the front at brakeBias = 1 and on the rear at 0', () => {
+        const front = distributeBrake(10000, 1);
+        expect(front.rearLeftWheel).toBe(0);
+        expect(front.rearRightWheel).toBe(0);
+        const rear = distributeBrake(10000, 0);
+        expect(rear.frontLeftWheel).toBe(0);
+        expect(rear.frontRightWheel).toBe(0);
     });
 });

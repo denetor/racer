@@ -1,7 +1,7 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
 import {CRR, DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, RHO_AIR, V_FLOOR} from "@/constants/physics.constants";
 
@@ -83,17 +83,21 @@ export class PhysicDriveUpdateSystem extends System {
     }
 
     /**
-     * Builds the net force and yaw torque from the power-limited engine, the aerodynamic drag, the
-     * transitional tracer brake and the four tyre forces, applies the low-speed kinematic blend,
-     * integrates one rigid-body step, and rotates the heading by the resulting yaw.
+     * Builds the net force and yaw torque from the power-limited engine, the per-wheel brake and
+     * rolling resistance, the aerodynamic drag and the four tyre lateral forces, applies the low-speed
+     * kinematic blend, integrates one rigid-body step, and rotates the heading by the resulting yaw.
      *
      * Engine (spec §3.8): `F_drive = throttle · min(F_max, P / max(|v_x|, V_FLOOR))`, strong from
      * rest and fading as `P/v`, signed by the reverse gear. It is **distributed per wheel** by the
      * drivetrain ({@link distributeDrive}, spec §3.9) and enters the friction circle as each wheel's
      * longitudinal `Fx` — so power over/understeer emerge from the asymmetric saturation, not from
-     * scripting. The top speed is a **plateau** where `P/v = F_aero + …` (no hard cap). Aerodynamic
-     * drag (`½·ρ·Cd·A·v²`) and the transitional tracer brake act as longitudinal forces at the COG
-     * (no yaw torque), outside both the circle and the blend.
+     * scripting. The top speed is a **plateau** where `P/v = F_aero + ΣF_roll` (no hard cap).
+     *
+     * Brake (spec §3.9): a separate total force distributed front-biased ({@link distributeBrake}),
+     * each wheel's share opposing its own longitudinal velocity and summed (signed) with the drive and
+     * the rolling resistance into that wheel's longitudinal demand — so the weight-loaded fronts
+     * saturate/lock first, and the brake yaw emerges per wheel. Aerodynamic drag (`½·ρ·Cd·A·v²`) is
+     * the one longitudinal force left at the COG (no yaw torque), outside both the circle and the blend.
      *
      * Per wheel: take its velocity (it rotates with the body), its slip angle (front wheels subtract
      * the steering `δ`, rear `0`), the linear lateral force `Fy = −Cα·α`, and **clamp the combined
@@ -124,12 +128,15 @@ export class PhysicDriveUpdateSystem extends System {
         vehicle.driveForce = fDriveSigned; // HUD readout (N, signed)
         const driveShares = distributeDrive(fDriveSigned, vehicle.drivetrain, vehicle.driveBias);
 
-        // Longitudinal forces at the COG, outside the friction circle and the low-speed blend:
-        // aerodynamic drag (spec §3.8, a body force opposing v_x, no yaw, zero at standstill) and the
-        // transitional tracer brake (per-wheel brake arrives in Phase 3).
-        const brakeForce = vehicle.brakeInput * vehicle.tracerBrakeForce;
-        const fAero = -Math.sign(vx) * aeroDrag(RHO_AIR, vehicle.dragCoefficient, vehicle.frontalArea, vx);
-        const fxCog = fAero - Math.sign(vx) * brakeForce;
+        // Brake (spec §3.9): the smoothed pedal scaled to the total force, distributed front-biased and
+        // 50/50 within each axle. Per-wheel magnitudes (≥ 0); each is applied below opposing the wheel's
+        // longitudinal velocity, inside the friction circle (so the weight-loaded fronts lock first).
+        const brakeTotal = vehicle.brakeInput * vehicle.brakeForce;
+        const brakeShares = distributeBrake(brakeTotal, vehicle.brakeBias);
+
+        // Aerodynamic drag (spec §3.8): a body force at the COG opposing v_x, no yaw, zero at
+        // standstill. Outside the friction circle and the low-speed blend.
+        const fxCog = -Math.sign(vx) * aeroDrag(RHO_AIR, vehicle.dragCoefficient, vehicle.frontalArea, vx);
 
         // Per-wheel tyre forces: each wheel's drive share plus its slip-angle lateral force, combined
         // inside the friction circle. The curve and the power balance emerge from each wheel.
@@ -169,7 +176,9 @@ export class PhysicDriveUpdateSystem extends System {
             // — high on grass, so an asymmetric surface drags one side and yaws the car ("pull").
             const rollFactor = wheelState?.rollFactor ?? 1;
             const fRoll = rollingResistance(CRR, rollFactor, fz);
-            const fxLong = driveShares[name] - Math.sign(wv.x) * fRoll;
+            // Drive (signed) summed with the brake and rolling resistance, both opposing this wheel's
+            // longitudinal velocity. Drive + brake together partly cancel (left-foot braking).
+            const fxLong = driveShares[name] - Math.sign(wv.x) * (fRoll + brakeShares[name]);
             const fLat = k * lateralForceLinear(alpha, cAlpha);
             // Friction circle, **per wheel, before the sum**: the asymmetric saturation (front vs rear,
             // grass side vs tarmac side) is what produces the yaw torque that makes the car slide and
@@ -193,17 +202,17 @@ export class PhysicDriveUpdateSystem extends System {
         vehicle.slipAngleFront = slipFrontSum / 2;
         vehicle.slipAngleRear = slipRearSum / 2;
 
-        // Net body force/torque: COG longitudinal (aero + tracer brake) + the per-wheel tyre forces.
-        // The lateral component is already k-scaled inside the clamp, so the tyre sums are added as-is:
-        // the longitudinal (drive) yaw acts fully, the lateral yaw keeps its k — the final omega blend
-        // tames the rest at low speed.
+        // Net body force/torque: COG aerodynamic drag + the per-wheel tyre forces (drive/brake/roll +
+        // lateral). The lateral component is already k-scaled inside the clamp, so the tyre sums are
+        // added as-is: the longitudinal (drive/brake) yaw acts fully, the lateral yaw keeps its k — the
+        // final omega blend tames the rest at low speed.
         const fx = fxCog + fxTyre;
         const fy = fyTyre;
         const mz = mzTyre;
 
         const next = integrateBody({vx, vy, omega}, fx, fy, mz, mass, vehicle.Iz, dt);
         // Braking decelerates but never reverses the car on its own: clamp to standstill on overshoot.
-        if (vehicle.throttleInput === 0 && brakeForce > 0 && vx !== 0 && Math.sign(next.vx) !== Math.sign(vx)) {
+        if (vehicle.throttleInput === 0 && brakeTotal > 0 && vx !== 0 && Math.sign(next.vx) !== Math.sign(vx)) {
             next.vx = 0;
         }
         // Blend the yaw toward the kinematic value at low speed (k=1 keeps the full dynamic yaw).
