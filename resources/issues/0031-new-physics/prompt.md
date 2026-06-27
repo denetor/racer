@@ -413,7 +413,7 @@ esistente.
 Ricordati di considerare che l'applicazione è sviluppata con ExcaliburJs, quindi si dovrebbero considerare anche le sue
 convenzioni e le sue pratiche.
 
-Alla fine scrivi l'output nel file @resources/issues/0031-new-physics/step04/grill-me-out.md
+Alla fine scrivi l'output nel file @resources/issues/0031-new-physics/step05/grill-me-out.md
 ```
 
 ```md
@@ -436,6 +436,36 @@ Considera anche la struttura attuale del software
 
 ```md
 /implement-plan `Phase 2: Fumo per-ruota (strato cosmetico)` at @resources/issues/0031-new-physics/step05/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+
+---
+```md
+/grill-me implementazione dello `step6` del file `resources/issues/0031-new-physics/plan-steps.md`.
+Fai riferimento alle specifiche nel file `resources/issues/0031-new-physics/specs.md` e alla struttura del software
+esistente.
+Ricordati di considerare che l'applicazione è sviluppata con ExcaliburJs, quindi si dovrebbero considerare anche le sue
+convenzioni e le sue pratiche.
+
+Alla fine scrivi l'output nel file @resources/issues/0031-new-physics/step06/grill-me-out.md
+```
+
+```md
+use /write-a-prd about the decisions just taken and listed in @resources/issues/0031-new-physics/step06/grill-me-out.md . Write the output file in the directory `resources/issues/0031-new-physics/step06/`
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+usa /prd-to-plan con il prd che trovi in @resources/issues/0031-new-physics/step06/prd.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+/implement-plan `Phase 1: ` at @resources/issues/0031-new-physics/step06/prd-plan.md
 Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
 Considera anche la struttura attuale del software
 ```
