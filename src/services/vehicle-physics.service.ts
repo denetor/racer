@@ -423,3 +423,43 @@ export function kinematicYawRate(vx: number, steerAngle: number, wheelbase: numb
     if (wheelbase <= 0) return 0;
     return vx * Math.tan(steerAngle) / wheelbase;
 }
+
+/** Per-wheel longitudinal saturation: whether (and which way) a tyre is sliding longitudinally. */
+export interface LongitudinalSaturation {
+    wheelspin: boolean; // the drive demand alone exceeds the longitudinal grip margin (driven wheel)
+    lockup: boolean;    // the brake demand alone exceeds the longitudinal grip margin
+}
+
+/**
+ * Classifies the **longitudinal** saturation of a single tyre into wheelspin / lockup (spec §3.5,
+ * Step 5). This is a **pure reading** on top of the friction circle: it does **not** change any force
+ * (the combined direction-preserving clamp in the update system still caps the applied force). The
+ * speed gate near standstill is applied by the caller, not here.
+ *
+ * Given the lateral force already on the tyre, the longitudinal grip left on the circle is
+ * `marginLong = √(max(0, (μ·Fz)² − fLat²))`. The net longitudinal demand is composed of the drive
+ * share, the brake share and the rolling resistance; **dominance** (which way the net longitudinal
+ * force points) is decided by comparing `|driveShare|` with `brakeShare + fRoll` (rolling resistance
+ * opposes motion like the brake). The flag is then raised only when the **actuator alone** exceeds the
+ * margin:
+ *   - `wheelspin` when drive dominates, the wheel is driven, and `|driveShare| > marginLong`;
+ *   - `lockup` when brake dominates and `brakeShare > marginLong`.
+ *
+ * Rolling resistance is never an actuator: on its own it raises no flag, so a pure lateral slide at
+ * released pedals stays only laterally saturated (the HUD "basso"). A non-driven wheel can never
+ * wheelspin. Returns both `false` when nothing exceeds its own margin.
+ */
+export function longitudinalSaturation(driveShare: number, brakeShare: number, fRoll: number, fLat: number, mu: number, fz: number, isDriven: boolean): LongitudinalSaturation {
+    const radius = Math.max(0, mu * fz);
+    const marginLong = Math.sqrt(Math.max(0, radius * radius - fLat * fLat));
+    const driveMag = Math.abs(driveShare);
+    const brakeMag = brakeShare + fRoll; // dominance only: rolling resistance opposes motion like the brake
+    let wheelspin = false;
+    let lockup = false;
+    if (driveMag >= brakeMag) {
+        wheelspin = isDriven && driveMag > marginLong;
+    } else {
+        lockup = brakeShare > marginLong; // fRoll excluded from the gate: it alone never flags
+    }
+    return {wheelspin, lockup};
+}

@@ -40,3 +40,11 @@ export const CRR = 0.015;
  * a division by zero. Used by Step 4.
  */
 export const V_FLOOR = 1;
+
+/**
+ * Speed (m/s) below which the skid flags (`wheelspin`/`lockup`) are suppressed (spec §3.5, Step 5).
+ * Near standstill the tyre is not really sliding, so the flags — and the smoke they drive — would
+ * flicker. Kept small so that on low grip the wheelspin still shows right after launch. Applied by
+ * the update system to both flags.
+ */
+export const SKID_MIN_SPEED = 0.5;

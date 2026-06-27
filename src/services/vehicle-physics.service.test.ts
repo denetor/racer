@@ -1,4 +1,4 @@
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, longitudinalSaturation, lowSpeedKinematicBlend, pxPerMeter, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -612,5 +612,52 @@ describe('distributeBrake', () => {
         const rear = distributeBrake(10000, 0);
         expect(rear.frontLeftWheel).toBe(0);
         expect(rear.frontRightWheel).toBe(0);
+    });
+});
+
+describe('longitudinalSaturation', () => {
+    // radius = μ·Fz = 1·2000 = 2000 N; marginLong = √(2000² − fLat²).
+    it('flags wheelspin when the drive alone exceeds the margin (driven wheel)', () => {
+        // driveMag 3000 > marginLong 2000, drive dominant -> only wheelspin
+        const s = longitudinalSaturation(3000, 0, 50, 0, 1, 2000, true);
+        expect(s.wheelspin).toBe(true);
+        expect(s.lockup).toBe(false);
+    });
+
+    it('flags lockup when the brake exceeds the margin reduced by the lateral force', () => {
+        // fLat 1200 -> marginLong = √(2000²−1200²) = 1600; brakeShare 1800 > 1600 -> only lockup
+        const s = longitudinalSaturation(0, 1800, 50, 1200, 1, 2000, true);
+        expect(s.lockup).toBe(true);
+        expect(s.wheelspin).toBe(false);
+    });
+
+    it('raises no flag from rolling resistance alone, even with zero margin', () => {
+        // fLat 2100 > radius -> marginLong 0; only fRoll present, no actuator -> no flag
+        const s = longitudinalSaturation(0, 0, 300, 2100, 1, 2000, false);
+        expect(s.wheelspin).toBe(false);
+        expect(s.lockup).toBe(false);
+    });
+
+    it('never wheelspins a non-driven wheel, even under a drive demand', () => {
+        const s = longitudinalSaturation(3000, 0, 0, 0, 1, 2000, false);
+        expect(s.wheelspin).toBe(false);
+        expect(s.lockup).toBe(false);
+    });
+
+    it('raises no flag when the demand stays under the margin', () => {
+        const s = longitudinalSaturation(1000, 0, 20, 0, 1, 2000, true);
+        expect(s.wheelspin).toBe(false);
+        expect(s.lockup).toBe(false);
+    });
+
+    it('resolves combined gas+brake by the dominant contributor', () => {
+        // brake+roll (2550) dominates drive (1000) -> lockup branch
+        const braking = longitudinalSaturation(1000, 2500, 50, 0, 1, 2000, true);
+        expect(braking.lockup).toBe(true);
+        expect(braking.wheelspin).toBe(false);
+        // drive (2600) dominates brake+roll (550) -> wheelspin branch
+        const driving = longitudinalSaturation(2600, 500, 50, 0, 1, 2000, true);
+        expect(driving.wheelspin).toBe(true);
+        expect(driving.lockup).toBe(false);
     });
 });

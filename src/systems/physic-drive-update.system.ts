@@ -1,9 +1,9 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, longitudinalSaturation, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
-import {CRR, DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, RHO_AIR, V_FLOOR} from "@/constants/physics.constants";
+import {CRR, DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, RHO_AIR, SKID_MIN_SPEED, V_FLOOR} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -184,12 +184,21 @@ export class PhysicDriveUpdateSystem extends System {
             // grass side vs tarmac side) is what produces the yaw torque that makes the car slide and
             // "pull". Clamping the net force would erase it.
             const clamped = clampToFrictionCircle(fxLong, fLat, mu, fz);
+            // Step 5: classify the longitudinal saturation into wheelspin/lockup (pure reading, the
+            // applied force above is unchanged). Suppressed below SKID_MIN_SPEED so the flags — and the
+            // smoke they drive — don't flicker near standstill. A wheel is "driven" iff it got a drive
+            // share this frame; that already gates wheelspin to the driven axle.
+            const isDriven = driveShares[name] !== 0;
+            const skid = longitudinalSaturation(driveShares[name], brakeShares[name], fRoll, fLat, mu, fz, isDriven);
+            const moving = speed > SKID_MIN_SPEED;
             if (wheelState) {
                 wheelState.load = fz;
                 wheelState.loadStatic = staticLoads[name];
                 wheelState.slipAngle = alpha;
                 wheelState.saturated = clamped.saturated;
                 wheelState.longitudinalForce = clamped.fx;
+                wheelState.wheelspin = moving && skid.wheelspin;
+                wheelState.lockup = moving && skid.lockup;
             }
             // Rotate the clamped wheel-frame force by δ into the body frame (rear: δ = 0 -> no-op).
             const fwx = clamped.fx * Math.cos(delta) - clamped.fy * Math.sin(delta);

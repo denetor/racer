@@ -8,8 +8,9 @@ const LINE_HEIGHT = 22;
 // Columns of the per-wheel 2x2 grid (FL/FR over RL/RR), mirroring the car seen from above.
 const COL_LEFT_X = 30;
 const COL_RIGHT_X = 140;
-const COLOR_NORMAL = 'rgba(255, 255, 0, 1)';
-const COLOR_SATURATED = 'rgba(255, 80, 80, 1)';
+const COLOR_NORMAL = 'rgba(255, 255, 0, 1)';     // also lateral-only saturation (the "basso" case)
+const COLOR_WHEELSPIN = 'rgba(255, 160, 40, 1)'; // longitudinal saturation, drive side
+const COLOR_SATURATED = 'rgba(255, 80, 80, 1)';  // longitudinal saturation, brake side (lockup)
 const COLOR_LOADED = 'rgba(80, 220, 80, 1)';   // bar fill when the wheel is loaded above static
 const COLOR_UNLOADED = 'rgba(255, 80, 80, 1)'; // bar fill when the wheel is unloaded below static
 // Per-wheel load bar, drawn right of the Fz number, centred on the static load (tick), filling right
@@ -23,8 +24,9 @@ const BAR_HEIGHT = 9;
  * speed (km/h) with the gear, the smoothed gas/brake pedals, the longitudinal acceleration (m/s²),
  * the yaw rate (°/s) and the average front/rear slip angle (°), all derived from the actor's SI
  * state. Below that a 2x2 grid (FL/FR over RL/RR) shows the live per-wheel surface grip μ, static
- * load Fz (N) and slip angle (°), with a wheel's cell turned **red** when its tyre saturates the
- * friction circle — so sensing, load split and sliding can be verified at a glance while driving.
+ * load Fz (N) and slip angle (°), with the cell turning **orange + WSP** on wheelspin and **red + LCK**
+ * on lockup (longitudinal saturation), and staying **yellow** for a purely lateral saturation — so
+ * sensing, load split and the type of sliding can be verified at a glance while driving.
  * Each cell also carries a **load bar** centred on the static load: it fills right (green) when the
  * wheel is loaded above static, left (red) when below, making the load transfer visible while driving.
  */
@@ -90,16 +92,22 @@ export class PhysicsDebugHud extends ScreenElement {
         ctx.fillStyle = COLOR_NORMAL;
     }
 
-    /** Draws one wheel block (label, μ, Fz, slip, Fx) at a column, in red when the tyre is saturated. */
+    /**
+     * Draws one wheel block (label[+token], μ, Fz, slip, Fx) at a column. The cell colour encodes the
+     * longitudinal saturation: **orange** + `WSP` for wheelspin, **red** + `LCK` for lockup, and
+     * **yellow** (no token) for either no saturation or a purely lateral one (the "basso" case).
+     */
     private wheelCell(ctx: CanvasRenderingContext2D, vehicle: PhysicVehicleActor | null, name: string, label: string, x: number, topRow: number): void {
         const ws = vehicle?.wheelStates.get(name);
-        ctx.fillStyle = ws?.saturated ? COLOR_SATURATED : COLOR_NORMAL;
+        const cellColor = ws?.lockup ? COLOR_SATURATED : ws?.wheelspin ? COLOR_WHEELSPIN : COLOR_NORMAL;
+        const token = ws?.wheelspin ? ' WSP' : ws?.lockup ? ' LCK' : '';
+        ctx.fillStyle = cellColor;
         const slipDeg = (ws?.slipAngle ?? 0) * 180 / Math.PI;
-        this.cell(ctx, label, x, topRow);
+        this.cell(ctx, `${label}${token}`, x, topRow);
         this.cell(ctx, `μ ${(ws?.gripSurface ?? 0).toFixed(2)}`, x, topRow + 1);
         this.cell(ctx, `${Math.round(ws?.load ?? 0)}N`, x, topRow + 2);
         this.loadBar(ctx, x + BAR_X_OFFSET, topRow + 2, ws?.load ?? 0, ws?.loadStatic ?? 0);
-        ctx.fillStyle = ws?.saturated ? COLOR_SATURATED : COLOR_NORMAL;
+        ctx.fillStyle = cellColor;
         this.cell(ctx, `${slipDeg.toFixed(1)}°`, x, topRow + 3);
         this.cell(ctx, `fx ${Math.round(ws?.longitudinalForce ?? 0)}`, x, topRow + 4);
     }
