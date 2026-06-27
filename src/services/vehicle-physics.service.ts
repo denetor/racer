@@ -306,11 +306,20 @@ export function wheelVelocity(vx: number, vy: number, omega: number, arm: Vec2):
 
 /**
  * Slip angle of a wheel (rad): the angle between where the wheel points and where it actually
- * travels, `α = atan2(v_i_y, v_i_x) − δ`. The steering `δ` is subtracted for the steered (front)
- * wheels; pass `0` for the rear. Zero when the wheel rolls straight along its heading.
+ * travels. The steering `δ` is subtracted for the steered (front) wheels; pass `0` for the rear.
+ * Zero when the wheel rolls straight along its heading.
+ *
+ * **Reverse-aware.** Measured against the *travel direction* via `|v_i_x|`, so it stays in
+ * `(−π/2, π/2)` instead of wrapping near `±π` when the wheel rolls backward (`v_i_x < 0`). The naive
+ * `atan2(v_i_y, v_i_x) − δ` returns `≈ π` for straight reverse, producing a huge bogus lateral force
+ * that saturates the friction circle — which both kills braking (the circle is eaten by the fake
+ * lateral demand) and breaks reverse steering. Subtracting `δ·sign(v_i_x)` flips the steered-wheel
+ * contribution in reverse, so the same steering input yaws the car the opposite way (consistent with
+ * {@link kinematicYawRate}, whose yaw also flips with `v_x`). Forward motion (`v_i_x > 0`) is
+ * unchanged: it reduces to `atan2(v_i_y, v_i_x) − δ`.
  */
 export function slipAngle(vix: number, viy: number, delta: number): number {
-    return Math.atan2(viy, vix) - delta;
+    return Math.atan2(viy, Math.abs(vix)) - delta * Math.sign(vix || 1);
 }
 
 /**

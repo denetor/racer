@@ -249,6 +249,25 @@ describe('slipAngle', () => {
     it('is zero when the wheel rolls straight along its heading', () => {
         expect(slipAngle(10, 0, 0)).toBeCloseTo(0);
     });
+
+    it('is ~0 (not ~π) going straight in reverse', () => {
+        // Reverse straight, no steer: the naive atan2(0, -5) = π would inject a huge bogus lateral
+        // force; measured against |v_x| it stays at 0, freeing the friction circle for braking.
+        expect(slipAngle(-5, 0, 0)).toBeCloseTo(0);
+    });
+
+    it('flips the steered-wheel contribution in reverse', () => {
+        // Same steering δ yaws the car the opposite way in reverse: forward gives -δ, reverse +δ
+        // (so the resulting lateral force, hence the yaw moment, reverses sign).
+        expect(slipAngle(5, 0, 0.3)).toBeCloseTo(-0.3);
+        expect(slipAngle(-5, 0, 0.3)).toBeCloseTo(0.3);
+    });
+
+    it('keeps the slip bounded to (-π/2, π/2) for lateral velocity in reverse', () => {
+        // atan2(viy, |v_x|) never wraps past ±π/2, unlike atan2(viy, v_x) with v_x < 0.
+        const alpha = slipAngle(-5, 5, 0);
+        expect(alpha).toBeCloseTo(Math.PI / 4);
+    });
 });
 
 describe('lateralForceLinear', () => {
