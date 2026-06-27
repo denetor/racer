@@ -1,8 +1,9 @@
 import {Canvas, Engine, ScreenElement} from "excalibur";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
+import {V_FLOOR} from "@/constants/physics.constants";
 
 const HUD_WIDTH = 240;
-const HUD_HEIGHT = 310;
+const HUD_HEIGHT = 390;
 const LINE_HEIGHT = 22;
 // Columns of the per-wheel 2x2 grid (FL/FR over RL/RR), mirroring the car seen from above.
 const COL_LEFT_X = 30;
@@ -67,22 +68,29 @@ export class PhysicsDebugHud extends ScreenElement {
         ctx.font = '16px monospace';
         ctx.textBaseline = 'middle';
 
+        // Drivetrain + power-limited engine readout: F_drive in kN, with "PL" when the engine is
+        // power-limited (P/v < F_max), i.e. running on the P/v branch rather than the F_max ceiling.
+        const drivetrain = v ? v.drivetrain.toUpperCase() : '-';
+        const driveKn = v ? v.driveForce / 1000 : 0;
+        const powerLimited = v ? v.enginePower / Math.max(Math.abs(v.velBody.x), V_FLOOR) < v.maxDriveForce : false;
+
         this.line(ctx, `v: ${speedKmh.toFixed(1)} km/h  [${gear}]`, 0);
         this.line(ctx, `gas: ${gas.toFixed(2)}  brake: ${brake.toFixed(2)}`, 1);
         this.line(ctx, `aLong: ${aLong.toFixed(2)} m/s²`, 2);
         this.line(ctx, `yaw: ${yawRateDeg.toFixed(1)} °/s`, 3);
         this.line(ctx, `slip f/r: ${slipFrontDeg.toFixed(1)}° / ${slipRearDeg.toFixed(1)}°`, 4);
+        this.line(ctx, `${drivetrain}  Fdrv: ${driveKn.toFixed(1)} kN${powerLimited ? '  PL' : ''}`, 5);
 
         // Per-wheel grid, mirroring the car: FL/FR on top, RL/RR below. Each cell shows grip μ, load
-        // Fz and slip (°), turning red when the tyre saturates the friction circle.
-        this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 5);
-        this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 5);
-        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 9);
-        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 9);
+        // Fz, slip (°) and longitudinal force Fx, turning red when the tyre saturates the friction circle.
+        this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 6);
+        this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 6);
+        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 11);
+        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 11);
         ctx.fillStyle = COLOR_NORMAL;
     }
 
-    /** Draws one wheel block (label, μ, Fz, slip) at a column, in red when the tyre is saturated. */
+    /** Draws one wheel block (label, μ, Fz, slip, Fx) at a column, in red when the tyre is saturated. */
     private wheelCell(ctx: CanvasRenderingContext2D, vehicle: PhysicVehicleActor | null, name: string, label: string, x: number, topRow: number): void {
         const ws = vehicle?.wheelStates.get(name);
         ctx.fillStyle = ws?.saturated ? COLOR_SATURATED : COLOR_NORMAL;
@@ -93,6 +101,7 @@ export class PhysicsDebugHud extends ScreenElement {
         this.loadBar(ctx, x + BAR_X_OFFSET, topRow + 2, ws?.load ?? 0, ws?.loadStatic ?? 0);
         ctx.fillStyle = ws?.saturated ? COLOR_SATURATED : COLOR_NORMAL;
         this.cell(ctx, `${slipDeg.toFixed(1)}°`, x, topRow + 3);
+        this.cell(ctx, `fx ${Math.round(ws?.longitudinalForce ?? 0)}`, x, topRow + 4);
     }
 
     /**

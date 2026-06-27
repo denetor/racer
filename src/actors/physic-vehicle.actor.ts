@@ -1,10 +1,7 @@
 import {CollisionType, Engine, vec, Vector} from "excalibur";
 import {BaseVehicleActor} from "@/actors/base-vehicle.actor";
 import {WheelState} from "@/models/wheel-state.model";
-import {getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2, WheelArms} from "@/services/vehicle-physics.service";
-
-/** Driven axle layout: front-, rear- or all-wheel drive. */
-export type Drivetrain = 'fwd' | 'rwd' | 'awd';
+import {Drivetrain, getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2, WheelArms} from "@/services/vehicle-physics.service";
 
 /**
  * Force-based vehicle. Shares the visual setup with {@link BaseVehicleActor} and adds the planar
@@ -30,6 +27,8 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public brakeInput: number = 0;
     // longitudinal acceleration of the last integrated frame (m/s²), exposed for the debug HUD
     public longitudinalAccel: number = 0;
+    // signed total drive force applied last frame (N), exposed for the debug HUD (kN + power-limited)
+    public driveForce: number = 0;
     // Body-frame acceleration of the last frame (m/s²): the net force / mass, i.e. the true COG
     // acceleration (the Coriolis terms cancel). Written at the end of integration and read the next
     // frame as the source of dynamic load transfer — the one-frame lag breaks the Fz↔force loop.
@@ -63,9 +62,20 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public corneringStiffnessFront: number = 40000;
     public corneringStiffnessRear: number = 50000;
 
-    // Drivetrain: which axle(s) receive the drive force, and the front fraction for AWD (inert at Step 0).
+    // Drivetrain: which axle(s) receive the drive force, and the front fraction for AWD.
     public drivetrain: Drivetrain = 'rwd';
-    public driveBias: number = 0;       // [0, 1] fraction of drive to the front axle
+    public driveBias: number = 0;       // [0, 1] fraction of drive to the front axle (AWD only)
+
+    // Power-limited engine (spec §3.8): F_drive = min(maxDriveForce, enginePower / |v_x|). Strong from
+    // rest (maxDriveForce), fading as P/v; the top speed emerges as a plateau against aero + rolling
+    // resistance, with no hard speed cap.
+    public enginePower: number = 150000;    // W (~200 hp)
+    public maxDriveForce: number = 8000;    // N, traction ceiling from rest (ex tracerDriveForce role)
+
+    // Aerodynamics (spec §3.8): F_aero = ½·ρ·Cd·A·v², a body force at the COG opposing motion. Sets
+    // where the top-speed plateau lands together with enginePower.
+    public dragCoefficient: number = 0.7;   // Cd
+    public frontalArea: number = 2.2;       // m²
 
     // Fuel mass, concentrated at the COG and burned slowly over time (inert at Step 0). The physics
     // mass is `getTotalMass(mass, fuelMass)` so burn reflects everywhere through one helper.
@@ -83,11 +93,9 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public steeringSpeed: number = 2.5;
     public steeringReturnSpeed: number = 2.5;
 
-    // Placeholder "tracer" propulsion: throttle -> constant body Fx, linear drag. Replaced by the
-    // real power-limited engine in a later step.
-    public tracerDriveForce: number = 6000; // N at full throttle
+    // Transitional "tracer" brake: throttle -> a constant body Fx opposing motion at the COG. The real
+    // per-wheel, front-biased brake replaces this in Step 4 Phase 3.
     public tracerBrakeForce: number = 9000; // N at full brake (opposes motion)
-    public linearDragCoeff: number = 0.2;   // 1/s
     // reverse can only be toggled at (near) standstill, below this speed (m/s)
     public reverseToggleMaxSpeed: number = 0.5;
 

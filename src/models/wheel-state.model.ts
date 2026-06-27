@@ -15,6 +15,7 @@ export class WheelState {
     public gripSurface: number = DEFAULT_SURFACE_GRIP; // μ, the grip of the surface under the wheel
     public load: number = 0;                           // Fz (N), dynamic load, written every frame by the update system
     public loadStatic: number = 0;                     // Fz (N), static baseline, written every frame; the HUD bar centres on it
+    public longitudinalForce: number = 0;              // Fx (N), drive/brake force after the clamp, written every frame
     public slipAngle: number = 0;                      // rad, written every frame
     public saturated: boolean = false;                 // friction-circle flag, written every frame
     public surfaces: SurfaceActor[] = [];              // stack of surfaces the wheel currently overlaps

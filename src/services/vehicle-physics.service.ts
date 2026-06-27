@@ -322,6 +322,57 @@ export function lateralForceLinear(alpha: number, corneringStiffness: number): n
     return -corneringStiffness * alpha;
 }
 
+/** Driven axle layout: front-, rear- or all-wheel drive. */
+export type Drivetrain = 'fwd' | 'rwd' | 'awd';
+
+/**
+ * Power-limited engine drive force (N), spec §3.8: `F_drive = min(F_max, P / v)`. Strong from rest
+ * (capped at `F_max`) and fading as `P/v` once the power ceiling bites, so the top speed emerges as a
+ * plateau from the balance with the resistances instead of a hard cap. `v` is the forward body speed
+ * `|v_x|` (m/s); the caller floors it at `V_FLOOR` to keep `P/v` smooth near standstill. A
+ * non-positive `v` returns `F_max` (defensive: no division by zero). The sign (gear) and the throttle
+ * scaling are applied by the caller.
+ */
+export function driveForce(power: number, fMax: number, v: number): number {
+    if (v <= 0) return fMax;
+    return Math.min(fMax, power / v);
+}
+
+/**
+ * Aerodynamic drag magnitude (N), spec §3.8: `½·ρ·Cd·A·v²`. Grows with the square of the speed, so it
+ * is what makes the top speed settle (the plateau is where `P/v = F_aero + F_roll`). Returns the
+ * magnitude only; the caller applies it as a body force at the COG opposing `v_x` (no yaw torque).
+ */
+export function aeroDrag(rho: number, cd: number, a: number, v: number): number {
+    return 0.5 * rho * cd * a * v * v;
+}
+
+/**
+ * Distributes the (signed) total drive force `fDrive` (N) onto the four wheels by drivetrain
+ * (spec §3.9), returning the per-wheel longitudinal share as a {@link WheelLoads}:
+ *   - `fwd` → all to the front axle, `rwd` → all to the rear axle;
+ *   - `awd` → `driveBias·fDrive` to the front and `(1−driveBias)·fDrive` to the rear (`driveBias` is
+ *     the front fraction).
+ * Within each axle the share is split **50/50** between the two wheels — an open-differential
+ * stand-in; real differentials are deferred. `fwd`/`rwd` ignore `driveBias`. The four shares always
+ * sum to `fDrive`. The sign of `fDrive` (forward/reverse) flows through unchanged.
+ */
+export function distributeDrive(fDrive: number, drivetrain: Drivetrain, driveBias: number): WheelLoads {
+    let front = 0;
+    let rear = 0;
+    switch (drivetrain) {
+        case 'fwd': front = fDrive; break;
+        case 'rwd': rear = fDrive; break;
+        case 'awd': front = fDrive * driveBias; rear = fDrive * (1 - driveBias); break;
+    }
+    return {
+        frontLeftWheel: front / 2,
+        frontRightWheel: front / 2,
+        rearLeftWheel: rear / 2,
+        rearRightWheel: rear / 2,
+    };
+}
+
 /**
  * Kinematic bicycle yaw rate: `ω = v_x·tan(δ)/L` (forward velocity, steering angle, wheelbase).
  * The yaw scales with speed and steering, is zero at standstill or zero steer, and flips sign in

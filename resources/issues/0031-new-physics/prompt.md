@@ -361,3 +361,45 @@ Test (10 nuovi):
   - lateralLoadTransfer: valore/segno, scaling con cogHeight, track ≤ 0 → 0.                                                                                                                                                                                                                                       
   - dynamicLoad (lateral): a_y>0 → sinistre guadagnano/destre perdono; per-asse (carreggiata più stretta → trasferimento maggiore); somma invariante pre-clamp; clamp ≥ 0 dell'interno; scaling con cogHeight; combinazione long.+lat. coerente (retro-esterno il più carico, antero-interno il meno).
 ```
+
+
+---
+```md
+/grill-me implementazione dello `step4` del file `resources/issues/0031-new-physics/plan-steps.md`.
+Fai riferimento alle specifiche nel file `resources/issues/0031-new-physics/specs.md` e alla struttura del software
+esistente.
+Ricordati di considerare che l'applicazione è sviluppata con ExcaliburJs, quindi si dovrebbero considerare anche le sue
+convenzioni e le sue pratiche.
+
+Alla fine scrivi l'output nel file @resources/issues/0031-new-physics/step04/grill-me-out.md
+```
+
+```md
+use /write-a-prd about the decisions just taken and listed in @resources/issues/0031-new-physics/step04/grill-me-out.md . Write the output file in the directory `resources/issues/0031-new-physics/step04/`
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+usa /prd-to-plan con il prd che trovi in @resources/issues/0031-new-physics/step04/prd.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+/implement-plan `Phase 1: Motore power-limited + aerodinamica + distribuzione trazione` at @resources/issues/0031-new-physics/step04/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+/implement-plan `Phase 2: ` at @resources/issues/0031-new-physics/step04/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```
+
+```md
+/implement-plan `Phase 3: ` at @resources/issues/0031-new-physics/step04/prd-plan.md
+Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
+Considera anche la struttura attuale del software
+```

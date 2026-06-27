@@ -1,9 +1,9 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {bodyToWorld, clampToFrictionCircle, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, lowSpeedKinematicBlend, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
-import {DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD} from "@/constants/physics.constants";
+import {DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, RHO_AIR, V_FLOOR} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -83,26 +83,30 @@ export class PhysicDriveUpdateSystem extends System {
     }
 
     /**
-     * Builds the net force and yaw torque from the longitudinal tracer plus the four tyre lateral
-     * forces, applies the low-speed kinematic blend, integrates one rigid-body step, and rotates the
-     * heading by the resulting yaw.
+     * Builds the net force and yaw torque from the power-limited engine, the aerodynamic drag, the
+     * transitional tracer brake and the four tyre forces, applies the low-speed kinematic blend,
+     * integrates one rigid-body step, and rotates the heading by the resulting yaw.
      *
-     * Longitudinal tracer at the COG (Step 0, no yaw torque): throttle drive (signed by reverse
-     * gear) plus a brake force opposing motion, with linear drag as the force `−m·dragCoeff·v_x` so
-     * the integrator stays purely force-driven. Per wheel: take its velocity (it rotates with the
-     * body), its slip angle (front wheels subtract the steering `δ`, rear wheels `0`), the linear
-     * lateral force `Fy = −Cα·α`, and **clamp it to the friction circle `μ·Fz`** (the live surface
-     * grip and the static load) — per wheel, before the sum, recording `slipAngle`/`saturated` on the
-     * `WheelState`. The clamped front-wheel force is **rotated by `δ`** back into the body frame
-     * before summing, so even at wide steer the curve stays faithful. Summing the forces gives the
-     * tyre `Fx`/`Fy`; summing their moments `r_i_x·F_i_y − r_i_y·F_i_x` gives the yaw torque. The
-     * clamp is the physical limit (before the sum, so asymmetric saturation yaws the car); the
-     * low-speed blend below is the numerical stabiliser (after).
+     * Engine (spec §3.8): `F_drive = throttle · min(F_max, P / max(|v_x|, V_FLOOR))`, strong from
+     * rest and fading as `P/v`, signed by the reverse gear. It is **distributed per wheel** by the
+     * drivetrain ({@link distributeDrive}, spec §3.9) and enters the friction circle as each wheel's
+     * longitudinal `Fx` — so power over/understeer emerge from the asymmetric saturation, not from
+     * scripting. The top speed is a **plateau** where `P/v = F_aero + …` (no hard cap). Aerodynamic
+     * drag (`½·ρ·Cd·A·v²`) and the transitional tracer brake act as longitudinal forces at the COG
+     * (no yaw torque), outside both the circle and the blend.
      *
-     * Below {@link LOW_SPEED_BLEND_THRESHOLD} the slip angles are `atan2` noise, so the dynamic tyre
-     * forces are scaled by `k` (→ 0 at standstill) and the yaw rate blends toward the kinematic
-     * bicycle value: the car steers smoothly from rest without vibrating or launching off on a
-     * tangent. At/above the threshold (`k = 1`) the full dynamic Phase-2 model applies. The brake
+     * Per wheel: take its velocity (it rotates with the body), its slip angle (front wheels subtract
+     * the steering `δ`, rear `0`), the linear lateral force `Fy = −Cα·α`, and **clamp the combined
+     * (Fx, Fy) to the friction circle `μ·Fz`** — per wheel, before the sum, recording
+     * `slipAngle`/`saturated`/`longitudinalForce` on the `WheelState`. The clamped front-wheel force
+     * is **rotated by `δ`** back into the body frame before summing. Summing the forces gives the tyre
+     * `Fx`/`Fy`; summing their moments `r_i_x·F_i_y − r_i_y·F_i_x` gives the yaw torque.
+     *
+     * Low-speed blend (spec §3.10): the slip angles below {@link LOW_SPEED_BLEND_THRESHOLD} are
+     * `atan2` noise, so **only the lateral demand** is scaled by `k` (→ 0 at standstill), **before**
+     * the clamp; the **longitudinal demand (drive) stays full** so the car pulls away from rest, and
+     * the circle is left almost fully available for traction. The yaw rate still blends toward the
+     * kinematic bicycle value at the end, taming any drive-induced yaw at low speed. The tracer brake
      * cannot push the car past zero into the opposite direction (it stops at standstill).
      */
     private integrateMotion(vehicle: PhysicVehicleActor, dt: number): void {
@@ -112,21 +116,33 @@ export class PhysicDriveUpdateSystem extends System {
         const mass = vehicle.totalMass;
         const speed = Math.hypot(vx, vy);
 
-        // Longitudinal "tracer" at the COG (always applied, never blended away).
+        // Power-limited engine (spec §3.8): strong from rest (F_max), fading as P/v; signed by gear.
+        // Distributed per wheel by the drivetrain (spec §3.9) so it enters the friction circle below.
+        const vEngine = Math.max(Math.abs(vx), V_FLOOR);
         const driveDir = vehicle.isReverse ? -1 : 1;
-        const driveForce = vehicle.throttleInput * vehicle.tracerDriveForce * driveDir;
-        const brakeForce = vehicle.brakeInput * vehicle.tracerBrakeForce;
-        const dragForce = -mass * vehicle.linearDragCoeff * vx;
-        const fxTracer = driveForce - Math.sign(vx) * brakeForce + dragForce;
+        const fDriveSigned = vehicle.throttleInput * driveForce(vehicle.enginePower, vehicle.maxDriveForce, vEngine) * driveDir;
+        vehicle.driveForce = fDriveSigned; // HUD readout (N, signed)
+        const driveShares = distributeDrive(fDriveSigned, vehicle.drivetrain, vehicle.driveBias);
 
-        // Per-wheel linear tyre forces: the curve emerges from each wheel's slip angle.
+        // Longitudinal forces at the COG, outside the friction circle and the low-speed blend:
+        // aerodynamic drag (spec §3.8, a body force opposing v_x, no yaw, zero at standstill) and the
+        // transitional tracer brake (per-wheel brake arrives in Phase 3).
+        const brakeForce = vehicle.brakeInput * vehicle.tracerBrakeForce;
+        const fAero = -Math.sign(vx) * aeroDrag(RHO_AIR, vehicle.dragCoefficient, vehicle.frontalArea, vx);
+        const fxCog = fAero - Math.sign(vx) * brakeForce;
+
+        // Per-wheel tyre forces: each wheel's drive share plus its slip-angle lateral force, combined
+        // inside the friction circle. The curve and the power balance emerge from each wheel.
         const arms = vehicle.wheelArmsBody;
-        // Static load Fz per wheel (spec §3.3), then the dynamic load with longitudinal transfer (spec
-        // §3.4). The dynamic Fz is the friction-circle radius input; the static one is kept as the HUD
-        // bar baseline. a_x/a_y come from last frame's body acceleration (net force / mass): the
-        // one-frame lag breaks the Fz↔force loop. The COG stays fixed — only the load redistributes.
+        // Static load Fz per wheel (spec §3.3), then the dynamic load with load transfer (spec §3.4).
+        // The dynamic Fz is the friction-circle radius input; the static one is kept as the HUD bar
+        // baseline. a_x/a_y come from last frame's body acceleration (net force / mass): the one-frame
+        // lag breaks the Fz↔force loop. The COG stays fixed — only the load redistributes.
         const staticLoads = staticLoad(vehicle.totalMass, G, arms);
         const loads = dynamicLoad(staticLoads, vehicle.totalMass, vehicle.bodyAccel.x, vehicle.bodyAccel.y, vehicle.cogHeight, vehicle.wheelbaseMeters, vehicle.trackFrontMeters, vehicle.trackRearMeters);
+        // Low-speed blend factor k: scales the lateral demand (below) and the final yaw.
+        const blend = lowSpeedKinematicBlend(speed, LOW_SPEED_BLEND_THRESHOLD, vx, vehicle.steeringAngle, vehicle.wheelbaseMeters);
+        const k = blend.lateralScale;
         const wheels: {name: keyof WheelLoads; arm: typeof arms.frontLeftWheel; isFront: boolean}[] = [
             {name: 'frontLeftWheel', arm: arms.frontLeftWheel, isFront: true},
             {name: 'frontRightWheel', arm: arms.frontRightWheel, isFront: true},
@@ -146,16 +162,21 @@ export class PhysicDriveUpdateSystem extends System {
             const cAlpha = isFront ? vehicle.corneringStiffnessFront : vehicle.corneringStiffnessRear;
             const wv = wheelVelocity(vx, vy, omega, arm);
             const alpha = slipAngle(wv.x, wv.y, delta);
-            const fLat = lateralForceLinear(alpha, cAlpha); // linear lateral force in the wheel frame
-            // Friction circle, **per wheel, before the sum** (Fx = 0 at Step 2): the asymmetric
-            // saturation (front vs rear, grass side vs tarmac side) is what produces the yaw torque
-            // that makes the car slide and "pull". Clamping the net force would erase it.
-            const clamped = clampToFrictionCircle(0, fLat, mu, fz);
+            // Longitudinal demand stays full (so the car accelerates from rest); the lateral demand is
+            // scaled by k *before* the clamp (atan2 noise at low speed). The circle couples them, so at
+            // low speed the radius is left almost entirely to traction.
+            const fxLong = driveShares[name];
+            const fLat = k * lateralForceLinear(alpha, cAlpha);
+            // Friction circle, **per wheel, before the sum**: the asymmetric saturation (front vs rear,
+            // grass side vs tarmac side) is what produces the yaw torque that makes the car slide and
+            // "pull". Clamping the net force would erase it.
+            const clamped = clampToFrictionCircle(fxLong, fLat, mu, fz);
             if (wheelState) {
                 wheelState.load = fz;
                 wheelState.loadStatic = staticLoads[name];
                 wheelState.slipAngle = alpha;
                 wheelState.saturated = clamped.saturated;
+                wheelState.longitudinalForce = clamped.fx;
             }
             // Rotate the clamped wheel-frame force by δ into the body frame (rear: δ = 0 -> no-op).
             const fwx = clamped.fx * Math.cos(delta) - clamped.fy * Math.sin(delta);
@@ -168,16 +189,17 @@ export class PhysicDriveUpdateSystem extends System {
         vehicle.slipAngleFront = slipFrontSum / 2;
         vehicle.slipAngleRear = slipRearSum / 2;
 
-        // Low-speed blend: fade the dynamic tyre forces out and the yaw toward the kinematic value.
-        const blend = lowSpeedKinematicBlend(speed, LOW_SPEED_BLEND_THRESHOLD, vx, vehicle.steeringAngle, vehicle.wheelbaseMeters);
-        const k = blend.lateralScale;
-        const fx = fxTracer + k * fxTyre;
-        const fy = k * fyTyre;
-        const mz = k * mzTyre;
+        // Net body force/torque: COG longitudinal (aero + tracer brake) + the per-wheel tyre forces.
+        // The lateral component is already k-scaled inside the clamp, so the tyre sums are added as-is:
+        // the longitudinal (drive) yaw acts fully, the lateral yaw keeps its k — the final omega blend
+        // tames the rest at low speed.
+        const fx = fxCog + fxTyre;
+        const fy = fyTyre;
+        const mz = mzTyre;
 
         const next = integrateBody({vx, vy, omega}, fx, fy, mz, mass, vehicle.Iz, dt);
         // Braking decelerates but never reverses the car on its own: clamp to standstill on overshoot.
-        if (driveForce === 0 && brakeForce > 0 && vx !== 0 && Math.sign(next.vx) !== Math.sign(vx)) {
+        if (vehicle.throttleInput === 0 && brakeForce > 0 && vx !== 0 && Math.sign(next.vx) !== Math.sign(vx)) {
             next.vx = 0;
         }
         // Blend the yaw toward the kinematic value at low speed (k=1 keeps the full dynamic yaw).

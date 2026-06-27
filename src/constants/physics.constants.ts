@@ -25,3 +25,18 @@ export const DEFAULT_SURFACE_GRIP = 1.0;
  * by the low-speed blend in Step 1.
  */
 export const LOW_SPEED_BLEND_THRESHOLD = 5;
+
+/**
+ * Rolling-resistance coefficient Crr (dimensionless): the rolling drag is `Crr · rollFactor · Fz`
+ * per wheel (spec §3.8). It is a tyre/surface property, not a per-vehicle one, so it lives here; the
+ * per-surface multiplier (`rollFactor`) scales it under each wheel. Declared now, consumed by the
+ * per-wheel rolling resistance in Step 4 Phase 2.
+ */
+export const CRR = 0.015;
+
+/**
+ * Floor speed (m/s) for the power-limited engine `F_drive = min(F_max, P / max(|v_x|, V_FLOOR))`
+ * (spec §3.8). Keeps `P/v` finite near standstill so the drive force is `F_max` from rest instead of
+ * a division by zero. Used by Step 4.
+ */
+export const V_FLOOR = 1;

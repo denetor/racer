@@ -1,4 +1,4 @@
-import {bodyToWorld, clampToFrictionCircle, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, lowSpeedKinematicBlend, pxPerMeter, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -466,5 +466,81 @@ describe('dynamicLoad (lateral)', () => {
         const loads = [fz.frontLeftWheel, fz.frontRightWheel, fz.rearLeftWheel, fz.rearRightWheel];
         expect(fz.rearLeftWheel).toBe(Math.max(...loads));
         expect(fz.frontRightWheel).toBe(Math.min(...loads));
+    });
+});
+
+describe('driveForce', () => {
+    // P/V_FLOOR (150000 / 1 = 150000) >> fMax, so at and below the floor the engine is at the ceiling.
+    it('returns the full F_max from rest (v at or below the floor)', () => {
+        expect(driveForce(150000, 8000, 1)).toBe(8000);
+        expect(driveForce(150000, 8000, 0)).toBe(8000); // defensive: no division by zero
+    });
+
+    it('decays as P/v once the power ceiling bites', () => {
+        // At 30 m/s, P/v = 150000/30 = 5000 < fMax -> power-limited branch.
+        expect(driveForce(150000, 8000, 30)).toBeCloseTo(5000);
+    });
+
+    it('is monotonically non-increasing in v', () => {
+        const a = driveForce(150000, 8000, 20);
+        const b = driveForce(150000, 8000, 40);
+        const c = driveForce(150000, 8000, 60);
+        expect(a).toBeGreaterThanOrEqual(b);
+        expect(b).toBeGreaterThanOrEqual(c);
+    });
+});
+
+describe('aeroDrag', () => {
+    it('is zero at zero speed', () => {
+        expect(aeroDrag(1.225, 0.7, 2.2, 0)).toBe(0);
+    });
+
+    it('grows with the square of the speed (doubling v quadruples the force)', () => {
+        const f10 = aeroDrag(1.225, 0.7, 2.2, 10);
+        const f20 = aeroDrag(1.225, 0.7, 2.2, 20);
+        expect(f20).toBeCloseTo(4 * f10);
+    });
+
+    it('matches ½·ρ·Cd·A·v² and scales with Cd·A·ρ', () => {
+        expect(aeroDrag(1.225, 0.7, 2.2, 10)).toBeCloseTo(0.5 * 1.225 * 0.7 * 2.2 * 100);
+        expect(aeroDrag(2.45, 0.7, 2.2, 10)).toBeCloseTo(2 * aeroDrag(1.225, 0.7, 2.2, 10));
+    });
+});
+
+describe('distributeDrive', () => {
+    it('sends all the drive to the front axle for fwd, 50/50 within it', () => {
+        const d = distributeDrive(8000, 'fwd', 0.5);
+        expect(d.frontLeftWheel).toBe(4000);
+        expect(d.frontRightWheel).toBe(4000);
+        expect(d.rearLeftWheel).toBe(0);
+        expect(d.rearRightWheel).toBe(0);
+    });
+
+    it('sends all the drive to the rear axle for rwd, 50/50 within it', () => {
+        const d = distributeDrive(8000, 'rwd', 0.5);
+        expect(d.rearLeftWheel).toBe(4000);
+        expect(d.rearRightWheel).toBe(4000);
+        expect(d.frontLeftWheel).toBe(0);
+        expect(d.frontRightWheel).toBe(0);
+    });
+
+    it('splits awd by driveBias (front fraction), 50/50 within each axle', () => {
+        const d = distributeDrive(8000, 'awd', 0.4);
+        expect(d.frontLeftWheel).toBeCloseTo(1600);  // 0.4 * 8000 / 2
+        expect(d.frontRightWheel).toBeCloseTo(1600);
+        expect(d.rearLeftWheel).toBeCloseTo(2400);   // 0.6 * 8000 / 2
+        expect(d.rearRightWheel).toBeCloseTo(2400);
+    });
+
+    it('ignores driveBias for fwd and rwd', () => {
+        expect(distributeDrive(8000, 'fwd', 0.2)).toEqual(distributeDrive(8000, 'fwd', 0.9));
+        expect(distributeDrive(8000, 'rwd', 0.2)).toEqual(distributeDrive(8000, 'rwd', 0.9));
+    });
+
+    it('always sums the four shares back to the total drive (any drivetrain, signed)', () => {
+        for (const dt of ['fwd', 'rwd', 'awd'] as const) {
+            const d = distributeDrive(-5000, dt, 0.3); // negative = reverse, flows through
+            expect(d.frontLeftWheel + d.frontRightWheel + d.rearLeftWheel + d.rearRightWheel).toBeCloseTo(-5000);
+        }
     });
 });
