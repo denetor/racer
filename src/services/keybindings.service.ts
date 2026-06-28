@@ -21,6 +21,8 @@ export class KeybindingsService {
                 return Keys.ArrowRight;
             case Keybindings.EngageReverse:
                 return Keys.KeyR;
+            case Keybindings.ToggleDebugOverlay:
+                return Keys.KeyD;
             default:
                 return undefined as any as Keys;
         }

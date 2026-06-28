@@ -1,5 +1,6 @@
 import {Color, CollisionType, EmitterType, Engine, ParticleEmitter, vec, Vector} from "excalibur";
 import {BaseVehicleActor} from "@/actors/base-vehicle.actor";
+import {VehicleDebugOverlay} from "@/actors/vehicle-debug-overlay.actor";
 import {WheelState} from "@/models/wheel-state.model";
 import {VehicleStats} from "@/models/vehicle-stats.model";
 import {Drivetrain, getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2, WheelArms} from "@/services/vehicle-physics.service";
@@ -148,6 +149,10 @@ export class PhysicVehicleActor extends BaseVehicleActor {
             this.addChild(emitter);
             this.wheelSmoke.set(name, emitter);
         }
+
+        // On-vehicle physics debug overlay (every physic vehicle gets one; AI cars inherit it for free).
+        // It owns its own DebugOverlayComponent and is commuted by the DebugOverlaySystem.
+        this.addChild(new VehicleDebugOverlay(this));
     }
 
     /** Builds a per-wheel smoke emitter at `pos` (local frame), initially off (emitRate 0). */

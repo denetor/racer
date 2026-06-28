@@ -18,6 +18,7 @@ export class WheelState {
     public load: number = 0;                           // Fz (N), dynamic load, written every frame by the update system
     public loadStatic: number = 0;                     // Fz (N), static baseline, written every frame; the HUD bar centres on it
     public longitudinalForce: number = 0;              // Fx (N), drive/brake force after the clamp, written every frame
+    public lateralForce: number = 0;                   // Fy (N), wheel-frame lateral force after the clamp (pre-δ), written every frame
     public slipAngle: number = 0;                      // rad, written every frame
     public saturated: boolean = false;                 // friction-circle flag (any saturation), written every frame
     public wheelspin: boolean = false;                 // longitudinal saturation, drive side (Step 5), written every frame

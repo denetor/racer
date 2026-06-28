@@ -22,3 +22,7 @@ use /write-a-prd about the decisions just taken and listed in @resources/issues/
 ```md
 usa /prd-to-plan con il prd che trovi in @resources/issues/0036-debug-lines/prd.md
 ```
+
+```md
+/implement-plan implementando, una alla volta, tutte le fasi elencate nel file @resources/issues/0036-debug-lines/plan-debug-overlay.md
+```

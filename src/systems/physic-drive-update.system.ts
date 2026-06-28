@@ -241,6 +241,8 @@ export class PhysicDriveUpdateSystem extends System {
                 wheelState.slipAngle = alpha;
                 wheelState.saturated = clamped.saturated;
                 wheelState.longitudinalForce = clamped.fx;
+                wheelState.lateralForce = clamped.fy; // wheel frame (pre-δ); the debug overlay draws it
+
                 wheelState.wheelspin = moving && skid.wheelspin;
                 wheelState.lockup = moving && skid.lockup;
                 // Tyre wear (spec §4, Step 6): consume per the distance this wheel travelled this frame,

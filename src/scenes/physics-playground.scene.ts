@@ -8,6 +8,7 @@ import {getHeadingFromRadians} from "@/services/math.service";
 import {CameraFollowPlayerSystem} from "@/systems/camera-follow-player.system";
 import {PhysicDriveInputSystem} from "@/systems/physic-drive-input.system";
 import {PhysicDriveUpdateSystem} from "@/systems/physic-drive-update.system";
+import {DebugOverlaySystem} from "@/systems/debug-overlay.system";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 import {DrivableComponent} from "@/components/drivable.component";
 import {DriverInputComponent} from "@/components/driver-input.component";
@@ -44,6 +45,7 @@ export class PhysicsPlaygroundScene extends Scene {
         this.world.add(PhysicDriveInputSystem);
         this.world.add(PhysicDriveUpdateSystem);
         this.world.add(CameraFollowPlayerSystem);
+        this.world.add(DebugOverlaySystem);
 
         const playerPosition = GridPositionService.getPosition(Resources.playgroundMap, 1) || new GridPosition();
         const player = new PhysicVehicleActor();

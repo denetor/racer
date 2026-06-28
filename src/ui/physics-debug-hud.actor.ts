@@ -1,6 +1,8 @@
 import {Canvas, Engine, ScreenElement} from "excalibur";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 import {MIN_TYRE_WEAR, V_FLOOR} from "@/constants/physics.constants";
+import {COLOR_NORMAL, COLOR_SATURATED, COLOR_WHEELSPIN} from "@/constants/debug-colors.constants";
+import {DebugOverlayComponent} from "@/components/debug-overlay.component";
 
 const HUD_WIDTH = 240;
 const HUD_HEIGHT = 480;
@@ -8,9 +10,7 @@ const LINE_HEIGHT = 22;
 // Columns of the per-wheel 2x2 grid (FL/FR over RL/RR), mirroring the car seen from above.
 const COL_LEFT_X = 30;
 const COL_RIGHT_X = 140;
-const COLOR_NORMAL = 'rgba(255, 255, 0, 1)';     // also lateral-only saturation (the "basso" case)
-const COLOR_WHEELSPIN = 'rgba(255, 160, 40, 1)'; // longitudinal saturation, drive side
-const COLOR_SATURATED = 'rgba(255, 80, 80, 1)';  // longitudinal saturation, brake side (lockup)
+// Base + saturation colours now live in the shared debug palette (reused by the on-vehicle overlay).
 const COLOR_WEAR_ALERT = 'rgba(255, 80, 80, 1)'; // tyre wear near the MIN_TYRE_WEAR floor
 // Wear is highlighted once it gets within this margin of the floor (an almost-spent tyre).
 const WEAR_ALERT_MARGIN = 0.1;
@@ -42,6 +42,8 @@ export class PhysicsDebugHud extends ScreenElement {
 
     onInitialize(engine: Engine): void {
         super.onInitialize(engine);
+        // Carries the toggle flag so the DebugOverlaySystem commutes the HUD together with the overlay.
+        this.addComponent(new DebugOverlayComponent());
         const canvas = new Canvas({
             cache: false,
             width: HUD_WIDTH,

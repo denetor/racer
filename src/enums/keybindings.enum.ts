@@ -13,4 +13,6 @@ export enum Keybindings {
     SteerLeft,
     SteerRight,
     EngageReverse,
+    // debug
+    ToggleDebugOverlay,
 }
