@@ -61,7 +61,7 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     private wheelSmoke: Map<string, ParticleEmitter> = new Map();
 
     // --- per-vehicle datasheet (single source of truth) ---
-    public mass: number = 1000;         // kg, chassis mass (ex `weight`)
+    public mass: number = 1500;         // kg, chassis mass (ex `weight`)
     public lengthMeters: number = 4.5;  // m; with the 121px sprite height -> pxPerMeter
 
     // Centre of gravity in body-frame metres, relative to the sprite centre (forward x, lateral y).
@@ -72,7 +72,7 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // Tyre cornering stiffness Cα (N/rad, **per wheel**; the axle total emerges by summing the two
     // tyres): lateral force per unit slip angle. The rear bites a bit more than the front to give a
     // slight, safe-to-tune understeer (the front loses grip first, so the car widens before it spins).
-    public corneringStiffnessFront: number = 40000;
+    public corneringStiffnessFront: number = 60000;
     public corneringStiffnessRear: number = 50000;
 
     // Drivetrain: which axle(s) receive the drive force, and the front fraction for AWD.
@@ -83,7 +83,7 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // rest (maxDriveForce), fading as P/v; the top speed emerges as a plateau against aero + rolling
     // resistance, with no hard speed cap.
     public enginePower: number = 150000;    // W (~200 hp)
-    public maxDriveForce: number = 8000;    // N, traction ceiling from rest (ex tracerDriveForce role)
+    public maxDriveForce: number = 5500;    // N, traction ceiling from rest (ex tracerDriveForce role)
 
     // Aerodynamics (spec §3.8): F_aero = ½·ρ·Cd·A·v², a body force at the COG opposing motion. Sets
     // where the top-speed plateau lands together with enginePower.
@@ -103,7 +103,7 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // Tyre wear (spec §4 "Usura gomme"): grip degrades with distance via μ_eff = gripSurface · wear.
     // Per-vehicle compound — wear consumed per km of wheel travel, multiplied by tyreWearSlipPenalty
     // while the wheel slides (saturated). The shared floor MIN_TYRE_WEAR keeps a worn tyre drivable.
-    public tyreWearRate: number = 0.1;        // wear fraction consumed per km of wheel travel
+    public tyreWearRate: number = 0.01;        // wear fraction consumed per km of wheel travel
     public tyreWearSlipPenalty: number = 5;   // multiplier on the wear rate while the wheel saturates the circle
 
     // pedal press/release rates (units per second), reused by the shared smoothPedal actuation
@@ -119,8 +119,8 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // Braking (spec §3.9): separate from the drive, distributed across the four wheels with a front
     // bias and entering the friction circle per wheel (so the fronts — loaded by weight transfer —
     // saturate/lock first). brakeForce is the total at full brake; brakeBias the front fraction.
-    public brakeForce: number = 12000;  // N total at full brake (opposes each wheel's motion)
-    public brakeBias: number = 0.6;     // [0, 1] fraction of the brake to the front axle
+    public brakeForce: number = 25000;  // N total at full brake (opposes each wheel's motion)
+    public brakeBias: number = 0.5;     // [0, 1] fraction of the brake to the front axle
     // reverse can only be toggled at (near) standstill, below this speed (m/s)
     public reverseToggleMaxSpeed: number = 0.5;
 
