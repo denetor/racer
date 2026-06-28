@@ -1,6 +1,7 @@
 import {Color, CollisionType, EmitterType, Engine, ParticleEmitter, vec, Vector} from "excalibur";
 import {BaseVehicleActor} from "@/actors/base-vehicle.actor";
 import {WheelState} from "@/models/wheel-state.model";
+import {VehicleStats} from "@/models/vehicle-stats.model";
 import {Drivetrain, getTotalMass, localToBody, pxPerMeter as computePxPerMeter, Vec2, WheelArms} from "@/services/vehicle-physics.service";
 
 /** Per-vehicle smoke tuning: particle rate when a wheel is sliding (wheelspin/lockup), 0 when not. */
@@ -39,6 +40,10 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // average front/rear axle slip angle of the last frame (rad), exposed for the debug HUD
     public slipAngleFront: number = 0;
     public slipAngleRear: number = 0;
+
+    // Metric driving statistics (distance travelled, last stopping distance), updated each frame by the
+    // update system with the SI state. Separate from the race data (laps/checkpoints).
+    public stats: VehicleStats = new VehicleStats();
 
     // Per-wheel physics state for the new force-based path (grip, Fz, slip, saturation, surface stack),
     // parallel to the inherited `wheelFactors`. Co-owned: the SurfacesService writes `gripSurface`/the

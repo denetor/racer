@@ -44,6 +44,7 @@ export class PhysicDriveUpdateSystem extends System {
             this.updateSteeringAngle(entity, input.steerTarget, dt);
             this.consumeFuel(entity, dt);
             this.integrateMotion(entity, dt);
+            this.updateStats(entity, dt);
 
             // Step 5: smoke is driven by real slip, not the throttle — each wheel smokes when it is
             // sliding longitudinally (wheelspin or lockup), set by integrateMotion above.
@@ -85,6 +86,17 @@ export class PhysicDriveUpdateSystem extends System {
             vehicle.fuelMass = Math.max(0, vehicle.fuelMass - burn);
             vehicle.fuelThrottleAccumulator = 0;
         }
+    }
+
+    /**
+     * Feeds the metric statistics (spec §3.2, Step 6) from the post-integration SI state: the body
+     * speed `|vel|` (m/s) and the smoothed brake pedal. Pure accumulation lives in {@link VehicleStats}
+     * (distance travelled + stopping distance); this only passes the live state in. Runs after
+     * {@link integrateMotion} so `velBody` is the current frame's velocity.
+     */
+    private updateStats(vehicle: PhysicVehicleActor, dt: number): void {
+        const speed = Math.hypot(vehicle.velBody.x, vehicle.velBody.y);
+        vehicle.stats.update(speed, vehicle.brakeInput, dt);
     }
 
     /**

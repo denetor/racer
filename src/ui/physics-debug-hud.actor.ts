@@ -3,7 +3,7 @@ import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 import {MIN_TYRE_WEAR, V_FLOOR} from "@/constants/physics.constants";
 
 const HUD_WIDTH = 240;
-const HUD_HEIGHT = 430;
+const HUD_HEIGHT = 480;
 const LINE_HEIGHT = 22;
 // Columns of the per-wheel 2x2 grid (FL/FR over RL/RR), mirroring the car seen from above.
 const COL_LEFT_X = 30;
@@ -94,12 +94,18 @@ export class PhysicsDebugHud extends ScreenElement {
         this.line(ctx, `fuel: ${fuelKg.toFixed(1)} kg (${Math.round(fuelPct)}%)`, 6);
         ctx.fillStyle = COLOR_NORMAL;
 
+        // Metric statistics (Step 6): total distance travelled (km) and last stopping distance (m).
+        const distKm = v ? v.stats.distanceTraveled / 1000 : 0;
+        const brakeM = v ? v.stats.lastBrakingDistance : 0;
+        this.line(ctx, `dist: ${distKm.toFixed(2)} km`, 7);
+        this.line(ctx, `brake: ${brakeM.toFixed(1)} m`, 8);
+
         // Per-wheel grid, mirroring the car: FL/FR on top, RL/RR below. Each cell shows grip μ, load
         // Fz, slip (°) and longitudinal force Fx, turning red when the tyre saturates the friction circle.
-        this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 7);
-        this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 7);
-        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 13);
-        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 13);
+        this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 9);
+        this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 9);
+        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 15);
+        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 15);
         ctx.fillStyle = COLOR_NORMAL;
     }
 
