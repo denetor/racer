@@ -1,9 +1,9 @@
 import {Canvas, Engine, ScreenElement} from "excalibur";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {V_FLOOR} from "@/constants/physics.constants";
+import {MIN_TYRE_WEAR, V_FLOOR} from "@/constants/physics.constants";
 
 const HUD_WIDTH = 240;
-const HUD_HEIGHT = 390;
+const HUD_HEIGHT = 430;
 const LINE_HEIGHT = 22;
 // Columns of the per-wheel 2x2 grid (FL/FR over RL/RR), mirroring the car seen from above.
 const COL_LEFT_X = 30;
@@ -11,6 +11,9 @@ const COL_RIGHT_X = 140;
 const COLOR_NORMAL = 'rgba(255, 255, 0, 1)';     // also lateral-only saturation (the "basso" case)
 const COLOR_WHEELSPIN = 'rgba(255, 160, 40, 1)'; // longitudinal saturation, drive side
 const COLOR_SATURATED = 'rgba(255, 80, 80, 1)';  // longitudinal saturation, brake side (lockup)
+const COLOR_WEAR_ALERT = 'rgba(255, 80, 80, 1)'; // tyre wear near the MIN_TYRE_WEAR floor
+// Wear is highlighted once it gets within this margin of the floor (an almost-spent tyre).
+const WEAR_ALERT_MARGIN = 0.1;
 const COLOR_LOADED = 'rgba(80, 220, 80, 1)';   // bar fill when the wheel is loaded above static
 const COLOR_UNLOADED = 'rgba(255, 80, 80, 1)'; // bar fill when the wheel is unloaded below static
 // Per-wheel load bar, drawn right of the Fz number, centred on the static load (tick), filling right
@@ -87,15 +90,16 @@ export class PhysicsDebugHud extends ScreenElement {
         // Fz, slip (°) and longitudinal force Fx, turning red when the tyre saturates the friction circle.
         this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 6);
         this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 6);
-        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 11);
-        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 11);
+        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 12);
+        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 12);
         ctx.fillStyle = COLOR_NORMAL;
     }
 
     /**
-     * Draws one wheel block (label[+token], μ, Fz, slip, Fx) at a column. The cell colour encodes the
-     * longitudinal saturation: **orange** + `WSP` for wheelspin, **red** + `LCK` for lockup, and
-     * **yellow** (no token) for either no saturation or a purely lateral one (the "basso" case).
+     * Draws one wheel block (label[+token], μ, Fz, slip, Fx, wear) at a column. The cell colour encodes
+     * the longitudinal saturation: **orange** + `WSP` for wheelspin, **red** + `LCK` for lockup, and
+     * **yellow** (no token) for either no saturation or a purely lateral one (the "basso" case). The
+     * wear row turns **red** on its own once it is within {@link WEAR_ALERT_MARGIN} of the floor.
      */
     private wheelCell(ctx: CanvasRenderingContext2D, vehicle: PhysicVehicleActor | null, name: string, label: string, x: number, topRow: number): void {
         const ws = vehicle?.wheelStates.get(name);
@@ -110,6 +114,10 @@ export class PhysicsDebugHud extends ScreenElement {
         ctx.fillStyle = cellColor;
         this.cell(ctx, `${slipDeg.toFixed(1)}°`, x, topRow + 3);
         this.cell(ctx, `fx ${Math.round(ws?.longitudinalForce ?? 0)}`, x, topRow + 4);
+        // Tyre wear % (Step 6), highlighted red near the floor so a spent tyre stands out at a glance.
+        const wear = ws?.wear ?? 1;
+        ctx.fillStyle = wear <= MIN_TYRE_WEAR + WEAR_ALERT_MARGIN ? COLOR_WEAR_ALERT : cellColor;
+        this.cell(ctx, `wear ${Math.round(wear * 100)}%`, x, topRow + 5);
     }
 
     /**

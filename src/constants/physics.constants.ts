@@ -48,3 +48,12 @@ export const V_FLOOR = 1;
  * the update system to both flags.
  */
 export const SKID_MIN_SPEED = 0.5;
+
+/**
+ * Floor of the per-wheel tyre wear (spec §4 "Usura gomme"): `wear` degrades the grip via
+ * `μ_eff = gripSurface · wear` and is clamped to `wear = max(MIN_TYRE_WEAR, wear − delta)`. A worn
+ * tyre has reduced but **non-zero** residual grip, so the car stays drivable even over a long stint
+ * (otherwise `wear → 0` would null the friction circle and make it ungovernable). Shared physical
+ * limit; the per-vehicle wear *rate* (compound) lives on the vehicle actor instead.
+ */
+export const MIN_TYRE_WEAR = 0.55;

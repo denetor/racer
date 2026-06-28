@@ -1,9 +1,9 @@
 import {Query, System, SystemPriority, SystemType, vec, World} from "excalibur";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, longitudinalSaturation, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, longitudinalSaturation, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, tyreWearDelta, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
-import {CRR, DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, RHO_AIR, SKID_MIN_SPEED, V_FLOOR} from "@/constants/physics.constants";
+import {CRR, DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, MIN_TYRE_WEAR, RHO_AIR, SKID_MIN_SPEED, V_FLOOR} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -168,7 +168,11 @@ export class PhysicDriveUpdateSystem extends System {
         for (const {name, arm, isFront} of wheels) {
             const wheelState = vehicle.wheelStates.get(name);
             const fz = loads[name];
-            const mu = wheelState?.gripSurface ?? DEFAULT_SURFACE_GRIP;
+            // Effective grip (spec §3.5, Step 6): the surface grip scaled by the tyre wear. This is the
+            // **single** point where wear couples into the physics — a worn tyre means a smaller friction
+            // circle, so it saturates/slides/locks earlier, all emergent. Used by both the circle clamp
+            // and the longitudinal-saturation classifier below.
+            const mu = (wheelState?.gripSurface ?? DEFAULT_SURFACE_GRIP) * (wheelState?.wear ?? 1);
             const delta = isFront ? vehicle.steeringAngle : 0;
             const cAlpha = isFront ? vehicle.corneringStiffnessFront : vehicle.corneringStiffnessRear;
             const wv = wheelVelocity(vx, vy, omega, arm);
@@ -203,6 +207,12 @@ export class PhysicDriveUpdateSystem extends System {
                 wheelState.longitudinalForce = clamped.fx;
                 wheelState.wheelspin = moving && skid.wheelspin;
                 wheelState.lockup = moving && skid.lockup;
+                // Tyre wear (spec §4, Step 6): consume per the distance this wheel travelled this frame,
+                // faster while it slides (saturated), floored at MIN_TYRE_WEAR so the car stays drivable.
+                // Per-wheel, so asymmetric driving wears the tyres unevenly. Feeds μ_eff next frame.
+                const wheelDistance = Math.hypot(wv.x, wv.y) * dt;
+                const wearDelta = tyreWearDelta(wheelDistance, clamped.saturated, vehicle.tyreWearRate, vehicle.tyreWearSlipPenalty);
+                wheelState.wear = Math.max(MIN_TYRE_WEAR, wheelState.wear - wearDelta);
             }
             // Rotate the clamped wheel-frame force by δ into the body frame (rear: δ = 0 -> no-op).
             const fwx = clamped.fx * Math.cos(delta) - clamped.fy * Math.sin(delta);

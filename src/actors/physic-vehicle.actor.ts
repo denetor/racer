@@ -91,6 +91,12 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public fuelMass: number = 60;       // kg, current fuel
     public fuelBurn: number = 0.01;     // kg/s
 
+    // Tyre wear (spec §4 "Usura gomme"): grip degrades with distance via μ_eff = gripSurface · wear.
+    // Per-vehicle compound — wear consumed per km of wheel travel, multiplied by tyreWearSlipPenalty
+    // while the wheel slides (saturated). The shared floor MIN_TYRE_WEAR keeps a worn tyre drivable.
+    public tyreWearRate: number = 0.1;        // wear fraction consumed per km of wheel travel
+    public tyreWearSlipPenalty: number = 5;   // multiplier on the wear rate while the wheel saturates the circle
+
     // pedal press/release rates (units per second), reused by the shared smoothPedal actuation
     public throttlePressRate: number = 5.0;
     public throttleReleaseRate: number = 5.0;

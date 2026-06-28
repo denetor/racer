@@ -449,6 +449,23 @@ export interface LongitudinalSaturation {
  * released pedals stays only laterally saturated (the HUD "basso"). A non-driven wheel can never
  * wheelspin. Returns both `false` when nothing exceeds its own margin.
  */
+/**
+ * Tyre wear consumed by one wheel in a frame (spec §4 "Usura gomme"), returned as a positive fraction
+ * to subtract from `wear ∈ [0, 1]`. The base consumption is proportional to the **distance** the wheel
+ * travelled this frame, so it is frame-rate independent and matches the "wears with the km"
+ * formulation: `baseRate` is the wear fraction per kilometre, `distance` the wheel travel in **metres**.
+ *
+ * When the tyre is **sliding** (`saturated` — any friction-circle saturation: wheelspin, lockup *or* a
+ * purely lateral slide) the consumption is multiplied by `slipPenalty` (≥ 1), so a long drift wears as
+ * fast as a wheelspin (a binary on/off multiplier, spec decision). Returns `0` for zero/negative
+ * distance. The caller applies the floor: `wear = max(MIN_TYRE_WEAR, wear − delta)`.
+ */
+export function tyreWearDelta(distance: number, saturated: boolean, baseRate: number, slipPenalty: number): number {
+    if (distance <= 0) return 0;
+    const distanceKm = distance / 1000;
+    return baseRate * distanceKm * (saturated ? slipPenalty : 1);
+}
+
 export function longitudinalSaturation(driveShare: number, brakeShare: number, fRoll: number, fLat: number, mu: number, fz: number, isDriven: boolean): LongitudinalSaturation {
     const radius = Math.max(0, mu * fz);
     const marginLong = Math.sqrt(Math.max(0, radius * radius - fLat * fLat));

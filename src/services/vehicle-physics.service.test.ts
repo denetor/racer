@@ -1,4 +1,5 @@
-import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, longitudinalSaturation, lowSpeedKinematicBlend, pxPerMeter, rollingResistance, slipAngle, staticLoad, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
+import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, getTotalMass, integrateBody, integrateLongitudinalStep, kinematicYawRate, lateralForceLinear, lateralLoadTransfer, localToBody, longitudinalLoadTransfer, longitudinalSaturation, lowSpeedKinematicBlend, pxPerMeter, rollingResistance, slipAngle, staticLoad, tyreWearDelta, wheelVelocity, WheelArms, WheelLoads, worldToBody} from './vehicle-physics.service';
+import {MIN_TYRE_WEAR} from '../constants/physics.constants';
 
 describe('pxPerMeter', () => {
     it('derives the scale from the sprite height and vehicle length', () => {
@@ -659,5 +660,38 @@ describe('longitudinalSaturation', () => {
         const driving = longitudinalSaturation(2600, 500, 50, 0, 1, 2000, true);
         expect(driving.wheelspin).toBe(true);
         expect(driving.lockup).toBe(false);
+    });
+});
+
+describe('tyreWearDelta', () => {
+    it('is proportional to the distance travelled (per km)', () => {
+        // 1 km at rate 0.1, not sliding -> 0.1; half the distance -> half the wear.
+        expect(tyreWearDelta(1000, false, 0.1, 5)).toBeCloseTo(0.1);
+        expect(tyreWearDelta(500, false, 0.1, 5)).toBeCloseTo(0.05);
+    });
+
+    it('wears faster when the tyre is sliding (saturated)', () => {
+        const clean = tyreWearDelta(1000, false, 0.1, 5);
+        const sliding = tyreWearDelta(1000, true, 0.1, 5);
+        expect(sliding).toBeGreaterThan(clean);
+        expect(sliding).toBeCloseTo(clean * 5); // binary slipPenalty multiplier
+    });
+
+    it('returns zero for zero or negative distance', () => {
+        expect(tyreWearDelta(0, false, 0.1, 5)).toBe(0);
+        expect(tyreWearDelta(0, true, 0.1, 5)).toBe(0);
+        expect(tyreWearDelta(-10, true, 0.1, 5)).toBe(0);
+    });
+
+    it('respects the floor when the delta is applied (max(MIN_TYRE_WEAR, wear − delta))', () => {
+        // A huge consumption never drops wear below the shared floor.
+        const wear = 0.6;
+        const delta = tyreWearDelta(100000, true, 0.1, 5); // way more than 0.6
+        expect(Math.max(MIN_TYRE_WEAR, wear - delta)).toBe(MIN_TYRE_WEAR);
+        // A small consumption lands above the floor and below the start.
+        const small = tyreWearDelta(100, false, 0.1, 5);
+        const applied = Math.max(MIN_TYRE_WEAR, 1.0 - small);
+        expect(applied).toBeGreaterThan(MIN_TYRE_WEAR);
+        expect(applied).toBeLessThan(1.0);
     });
 });
