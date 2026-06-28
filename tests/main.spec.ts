@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+// Baseline note (Step 6 switch): the start scene is now the force-based 'physics' scene, so the
+// baseline was regenerated to screenshot it (the debug HUD included). Only the `*-chromium-linux.png`
+// snapshot is regenerated here (the dev container is linux); the `*-chromium-win32.png` snapshot stays
+// stale until a Windows/CI environment re-runs `npm run test:integration-update`.
 test('main page looks correct', async ({ page }) => {
   await page.goto('http://localhost:4173/');
   // The engine auto-starts: `suppressPlayButton: true` removes the old `#excalibur-play` gate,

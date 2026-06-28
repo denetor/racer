@@ -5,9 +5,10 @@ import {PhysicsPlaygroundScene} from "@/scenes/physics-playground.scene";
 
 // Goal is to keep main.ts small and just enough to configure the engine
 
-// Start scene. MUST stay 'playground' in committed code (the Playwright baseline screenshots the
-// production scene). Flip to 'physics' locally to drive the new force-based physics dev scene.
-// const START_SCENE = 'playground';
+// Start scene. The force-based model is now the production scene (Step 6 switch): 'physics'
+// (PhysicsPlaygroundScene) is the committed start scene, and the Playwright baseline screenshots it.
+// The old kinematic model ('playground'/PlaygroundScene) stays in the repo as an orphan fallback.
+// const START_SCENE = 'playground'; // legacy kinematic model (orphan)
 const START_SCENE = 'physics';
 
 const game = new Engine({

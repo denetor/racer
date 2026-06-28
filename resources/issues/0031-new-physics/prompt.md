@@ -483,7 +483,7 @@ Considera anche la struttura attuale del software
 ```
 
 ```md
-/implement-plan `Phase 4: ` at @resources/issues/0031-new-physics/step06/prd-plan.md
+/implement-plan `Phase 4: Switch della scena principale + ribaselina` at @resources/issues/0031-new-physics/step06/prd-plan.md
 Nel file `resources/issues/0031-new-physics/specs.md` trovi le specifiche del risultato finale
 Considera anche la struttura attuale del software
 ```
