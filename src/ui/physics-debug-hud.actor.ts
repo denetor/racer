@@ -86,12 +86,20 @@ export class PhysicsDebugHud extends ScreenElement {
         this.line(ctx, `slip f/r: ${slipFrontDeg.toFixed(1)}° / ${slipRearDeg.toFixed(1)}°`, 4);
         this.line(ctx, `${drivetrain}  Fdrv: ${driveKn.toFixed(1)} kN${powerLimited ? '  PL' : ''}`, 5);
 
+        // Fuel row (Step 6): current fuel in kg and % of capacity, so the slow burn (and the car
+        // getting lighter) is readable while driving; turns red when the tank is empty (engine cut).
+        const fuelKg = v ? v.fuelMass : 0;
+        const fuelPct = v && v.fuelCapacity > 0 ? (v.fuelMass / v.fuelCapacity) * 100 : 0;
+        ctx.fillStyle = fuelKg > 0 ? COLOR_NORMAL : COLOR_SATURATED;
+        this.line(ctx, `fuel: ${fuelKg.toFixed(1)} kg (${Math.round(fuelPct)}%)`, 6);
+        ctx.fillStyle = COLOR_NORMAL;
+
         // Per-wheel grid, mirroring the car: FL/FR on top, RL/RR below. Each cell shows grip μ, load
         // Fz, slip (°) and longitudinal force Fx, turning red when the tyre saturates the friction circle.
-        this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 6);
-        this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 6);
-        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 12);
-        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 12);
+        this.wheelCell(ctx, v, 'frontLeftWheel', 'FL', COL_LEFT_X, 7);
+        this.wheelCell(ctx, v, 'frontRightWheel', 'FR', COL_RIGHT_X, 7);
+        this.wheelCell(ctx, v, 'rearLeftWheel', 'RL', COL_LEFT_X, 13);
+        this.wheelCell(ctx, v, 'rearRightWheel', 'RR', COL_RIGHT_X, 13);
         ctx.fillStyle = COLOR_NORMAL;
     }
 

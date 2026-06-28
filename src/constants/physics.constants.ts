@@ -57,3 +57,13 @@ export const SKID_MIN_SPEED = 0.5;
  * limit; the per-vehicle wear *rate* (compound) lives on the vehicle actor instead.
  */
 export const MIN_TYRE_WEAR = 0.55;
+
+/**
+ * Throttle-seconds threshold for the slow fuel burn (spec §3.4 "carburante al COG", Step 6). The
+ * update system accumulates `throttleInput · Δt` (seconds of effective throttle) and only applies the
+ * burn to `fuelMass` once this threshold is crossed — so the mass changes a few times per second, not
+ * every frame ("fuel is outside the per-frame physics"). The cadence in wall-clock time stretches at
+ * partial throttle (the accumulator grows slower), keeping the burn proportional to the gas. Generic
+ * simulation cadence, so it lives here; the per-vehicle burn rate (`fuelBurn`) lives on the actor.
+ */
+export const FUEL_BURN_THRESHOLD = 0.5;

@@ -89,7 +89,11 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // mass is `getTotalMass(mass, fuelMass)` so burn reflects everywhere through one helper.
     public fuelCapacity: number = 60;   // kg, full tank
     public fuelMass: number = 60;       // kg, current fuel
-    public fuelBurn: number = 0.01;     // kg/s
+    public fuelBurn: number = 0.01;     // kg/s, at full throttle
+    // Throttle-seconds accumulated since the last burn (Step 6). The update system sums
+    // `throttleInput · Δt` here and applies the burn over FUEL_BURN_THRESHOLD, so the mass drops on a
+    // slow cadence (not every frame) and stays proportional to the gas. Not part of the datasheet.
+    public fuelThrottleAccumulator: number = 0;
 
     // Tyre wear (spec §4 "Usura gomme"): grip degrades with distance via μ_eff = gripSurface · wear.
     // Per-vehicle compound — wear consumed per km of wheel travel, multiplied by tyreWearSlipPenalty

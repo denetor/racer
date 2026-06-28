@@ -3,7 +3,7 @@ import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 import {aeroDrag, bodyToWorld, clampToFrictionCircle, distributeBrake, distributeDrive, driveForce, dynamicLoad, integrateBody, lateralForceLinear, longitudinalSaturation, lowSpeedKinematicBlend, rollingResistance, slipAngle, staticLoad, tyreWearDelta, wheelVelocity, WheelLoads} from "@/services/vehicle-physics.service";
 import {smoothPedal, sumClamp} from "@/services/math.service";
-import {CRR, DEFAULT_SURFACE_GRIP, G, LOW_SPEED_BLEND_THRESHOLD, MIN_TYRE_WEAR, RHO_AIR, SKID_MIN_SPEED, V_FLOOR} from "@/constants/physics.constants";
+import {CRR, DEFAULT_SURFACE_GRIP, FUEL_BURN_THRESHOLD, G, LOW_SPEED_BLEND_THRESHOLD, MIN_TYRE_WEAR, RHO_AIR, SKID_MIN_SPEED, V_FLOOR} from "@/constants/physics.constants";
 
 /**
  * Applies the physics. Reads the driving intent ({@link DriverInputComponent}), actuates it
@@ -42,6 +42,7 @@ export class PhysicDriveUpdateSystem extends System {
             this.handleReverseToggle(entity, input);
             this.smoothPedals(entity, input, dt);
             this.updateSteeringAngle(entity, input.steerTarget, dt);
+            this.consumeFuel(entity, dt);
             this.integrateMotion(entity, dt);
 
             // Step 5: smoke is driven by real slip, not the throttle — each wheel smokes when it is
@@ -64,6 +65,26 @@ export class PhysicDriveUpdateSystem extends System {
     private smoothPedals(vehicle: PhysicVehicleActor, input: DriverInputComponent, dt: number): void {
         vehicle.throttleInput = smoothPedal(vehicle.throttleInput, input.throttleTarget > 0, vehicle.throttlePressRate, vehicle.throttleReleaseRate, dt);
         vehicle.brakeInput = smoothPedal(vehicle.brakeInput, input.brakeTarget > 0, vehicle.brakePressRate, vehicle.brakeReleaseRate, dt);
+    }
+
+    /**
+     * Burns fuel on a slow cadence (spec §3.4 "carburante al COG", Step 6), outside the per-frame
+     * physics. Each frame it accumulates `throttleInput · Δt` (seconds of effective throttle) on the
+     * actor; once that crosses {@link FUEL_BURN_THRESHOLD} it subtracts `fuelBurn · accumulated` from
+     * `fuelMass` in one go (clamped `≥ 0`) and resets the accumulator — so the mass drops a few times a
+     * second, not every tick, and stays proportional to the gas (the cadence stretches at part
+     * throttle, and a released throttle burns nothing). The drop reflects everywhere for free through
+     * the single-source `getTotalMass`/`totalMass`; the minimum mass stays `mass` (empty tank). No new
+     * system or Excalibur Timer.
+     */
+    private consumeFuel(vehicle: PhysicVehicleActor, dt: number): void {
+        if (vehicle.fuelMass <= 0) return; // empty tank: nothing left to burn
+        vehicle.fuelThrottleAccumulator += vehicle.throttleInput * dt;
+        if (vehicle.fuelThrottleAccumulator >= FUEL_BURN_THRESHOLD) {
+            const burn = vehicle.fuelBurn * vehicle.fuelThrottleAccumulator;
+            vehicle.fuelMass = Math.max(0, vehicle.fuelMass - burn);
+            vehicle.fuelThrottleAccumulator = 0;
+        }
     }
 
     /**
@@ -128,7 +149,10 @@ export class PhysicDriveUpdateSystem extends System {
         // Distributed per wheel by the drivetrain (spec §3.9) so it enters the friction circle below.
         const vEngine = Math.max(Math.abs(vx), V_FLOOR);
         const driveDir = vehicle.isReverse ? -1 : 1;
-        const fDriveSigned = vehicle.throttleInput * driveForce(vehicle.enginePower, vehicle.maxDriveForce, vEngine) * driveDir;
+        // Engine gate (Step 6): an empty tank cuts the drive force to zero (the gas stops working);
+        // steering, brake, aero and rolling resistance stay active, so the car coasts to a stop.
+        const hasFuel = vehicle.fuelMass > 0;
+        const fDriveSigned = hasFuel ? vehicle.throttleInput * driveForce(vehicle.enginePower, vehicle.maxDriveForce, vEngine) * driveDir : 0;
         vehicle.driveForce = fDriveSigned; // HUD readout (N, signed)
         const driveShares = distributeDrive(fDriveSigned, vehicle.drivetrain, vehicle.driveBias);
 
