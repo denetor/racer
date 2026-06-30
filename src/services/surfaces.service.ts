@@ -29,7 +29,7 @@ export class SurfacesService {
                 switch (surfaceObject.properties.get('terraintype')) {
                     case 'tarmac':
                         surfaceActor.surfaceName = 'tarmac';
-                        surfaceActor.powerFactor = 1.0;
+                        surfaceActor.powerFactor = 1.4;
                         surfaceActor.dragFactor = 0.05;
                         surfaceActor.gripFactor = 1.0;
                         surfaceActor.addTag('surface-tarmac');

@@ -73,8 +73,8 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // Tyre cornering stiffness Cα (N/rad, **per wheel**; the axle total emerges by summing the two
     // tyres): lateral force per unit slip angle. The rear bites a bit more than the front to give a
     // slight, safe-to-tune understeer (the front loses grip first, so the car widens before it spins).
-    public corneringStiffnessFront: number = 60000;
-    public corneringStiffnessRear: number = 50000;
+    public corneringStiffnessFront: number = 40000;
+    public corneringStiffnessRear: number = 40000;
 
     // Drivetrain: which axle(s) receive the drive force, and the front fraction for AWD.
     public drivetrain: Drivetrain = 'rwd';
@@ -83,7 +83,7 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     // Power-limited engine (spec §3.8): F_drive = min(maxDriveForce, enginePower / |v_x|). Strong from
     // rest (maxDriveForce), fading as P/v; the top speed emerges as a plateau against aero + rolling
     // resistance, with no hard speed cap.
-    public enginePower: number = 150000;    // W (~200 hp)
+    public enginePower: number = 160000;    // W (~200 hp)
     public maxDriveForce: number = 5500;    // N, traction ceiling from rest (ex tracerDriveForce role)
 
     // Aerodynamics (spec §3.8): F_aero = ½·ρ·Cd·A·v², a body force at the COG opposing motion. Sets
@@ -113,7 +113,7 @@ export class PhysicVehicleActor extends BaseVehicleActor {
     public brakePressRate: number = 5.0;
     public brakeReleaseRate: number = 5.0;
     // steering: max angle (rad) and ramp/return speeds (rad/s); drives the front-wheel rendering only
-    public maxSteeringAngle: number = 0.4;
+    public maxSteeringAngle: number = 0.5;
     public steeringSpeed: number = 2.5;
     public steeringReturnSpeed: number = 2.5;
 
