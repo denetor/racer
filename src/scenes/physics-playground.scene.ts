@@ -13,6 +13,7 @@ import {PhysicVehicleActor} from "@/actors/physic-vehicle.actor";
 import {DrivableComponent} from "@/components/drivable.component";
 import {DriverInputComponent} from "@/components/driver-input.component";
 import {PhysicsDebugHud} from "@/ui/physics-debug-hud.actor";
+import {LapsAppletActor} from "@/ui/laps-applet.actor";
 import {RaceData} from "@/models/race-data.model";
 import {VehicleRaceData} from "@/models/vehicle-race-data.model";
 import {PluginObject} from "@excaliburjs/plugin-tiled";
@@ -68,6 +69,10 @@ export class PhysicsPlaygroundScene extends Scene {
         this.raceData.addPlayer('Player1', new VehicleRaceData('Player1'));
         const checkpointObjects: PluginObject[] = Resources.playgroundMap.getObjectsByClassName('checkpoint');
         this.raceData.totalCheckpoints = checkpointObjects.filter(obj => obj.name !== 'finish-line').length;
+
+        const lapsApplet = new LapsAppletActor();
+        this.add(lapsApplet);
+        lapsApplet.setRaceData(this.raceData, 'Player1');
 
         this.timeIntoScene = 0;
     }
